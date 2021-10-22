@@ -1,3 +1,4 @@
+#![cfg_attr(docsrs, feature(doc_cfg))]
 //! Generated code for Apache Arrow format.
 
 #[cfg(feature = "ipc")]
