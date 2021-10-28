@@ -12,3 +12,6 @@ pub mod Schema;
 pub mod SparseTensor;
 #[allow(clippy::all)]
 pub mod Tensor;
+
+/// Re-export of flatbuffers
+pub use ::flatbuffers;
