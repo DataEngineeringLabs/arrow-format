@@ -1,11 +1,8 @@
 # Arrow generated IPC format
 
-The generated flatbuffers code for Rust.
+Generated flatbuffers code for Rust using [planus](https://crates.io/crates/planus).
 
-Note that these files suffered modifications because flatbuffers is unable to compile Apache Arrow,
-see https://github.com/google/flatbuffers/issues/6886.
-
-* Google flatbuffers version 2.0
+* Planuus version 2.0
 * Apache Arrow version 6.0
 
 ## Cargo features
