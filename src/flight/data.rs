@@ -74,7 +74,10 @@ pub struct Result {
 /// Wrap the result of a getSchema call
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct SchemaResult {
-    /// schema of the dataset as described in Schema.fbs::Schema.
+    /// The schema of the dataset in its IPC form:
+    ///   4 bytes - an optional IPC_CONTINUATION_TOKEN prefix
+    ///   4 bytes - the byte length of the payload
+    ///   a flatbuffer Message whose header is the Schema
     #[prost(bytes = "vec", tag = "1")]
     pub schema: ::prost::alloc::vec::Vec<u8>,
 }
@@ -120,7 +123,10 @@ pub mod flight_descriptor {
 /// consumer is able to determine how to retrieve a dataset.
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct FlightInfo {
-    /// schema of the dataset as described in Schema.fbs::Schema.
+    /// The schema of the dataset in its IPC form:
+    ///   4 bytes - an optional IPC_CONTINUATION_TOKEN prefix
+    ///   4 bytes - the byte length of the payload
+    ///   a flatbuffer Message whose header is the Schema
     #[prost(bytes = "vec", tag = "1")]
     pub schema: ::prost::alloc::vec::Vec<u8>,
     ///
@@ -128,8 +134,15 @@ pub struct FlightInfo {
     #[prost(message, optional, tag = "2")]
     pub flight_descriptor: ::core::option::Option<FlightDescriptor>,
     ///
-    /// A list of endpoints associated with the flight. To consume the whole
-    /// flight, all endpoints must be consumed.
+    /// A list of endpoints associated with the flight. To consume the
+    /// whole flight, all endpoints (and hence all Tickets) must be
+    /// consumed. Endpoints can be consumed in any order.
+    ///
+    /// In other words, an application can use multiple endpoints to
+    /// represent partitioned data.
+    ///
+    /// There is no ordering defined on endpoints. Hence, if the returned
+    /// data has an ordering, it should be returned in a single endpoint.
     #[prost(message, repeated, tag = "3")]
     pub endpoint: ::prost::alloc::vec::Vec<FlightEndpoint>,
     /// Set these to -1 if unknown.
@@ -147,9 +160,20 @@ pub struct FlightEndpoint {
     #[prost(message, optional, tag = "1")]
     pub ticket: ::core::option::Option<Ticket>,
     ///
-    /// A list of URIs where this ticket can be redeemed. If the list is
-    /// empty, the expectation is that the ticket can only be redeemed on the
-    /// current service where the ticket was generated.
+    /// A list of URIs where this ticket can be redeemed via DoGet().
+    ///
+    /// If the list is empty, the expectation is that the ticket can only
+    /// be redeemed on the current service where the ticket was
+    /// generated.
+    ///
+    /// If the list is not empty, the expectation is that the ticket can
+    /// be redeemed at any of the locations, and that the data returned
+    /// will be equivalent. In this case, the ticket may only be redeemed
+    /// at one of the given locations, and not (necessarily) on the
+    /// current service.
+    ///
+    /// In other words, an application can use multiple locations to
+    /// represent redundant and/or load balanced services.
     #[prost(message, repeated, tag = "2")]
     pub location: ::prost::alloc::vec::Vec<Location>,
 }
@@ -164,6 +188,9 @@ pub struct Location {
 ///
 /// An opaque identifier that the service can use to retrieve a particular
 /// portion of a stream.
+///
+/// Tickets are meant to be single use. It is an error/application-defined
+/// behavior to reuse a ticket.
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Ticket {
     #[prost(bytes = "vec", tag = "1")]
