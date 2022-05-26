@@ -2,7 +2,7 @@
 
 Generated flatbuffers code for Rust using [planus](https://crates.io/crates/planus).
 
-* Planuus version 2.0
+* Planus version 2.0
 * Apache Arrow version 6.0
 
 ## Cargo features
