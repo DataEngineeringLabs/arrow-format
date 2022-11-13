@@ -75,9 +75,9 @@ pub struct Result {
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct SchemaResult {
     /// The schema of the dataset in its IPC form:
-    ///   4 bytes - an optional IPC_CONTINUATION_TOKEN prefix
-    ///   4 bytes - the byte length of the payload
-    ///   a flatbuffer Message whose header is the Schema
+    ///    4 bytes - an optional IPC_CONTINUATION_TOKEN prefix
+    ///    4 bytes - the byte length of the payload
+    ///    a flatbuffer Message whose header is the Schema
     #[prost(bytes = "vec", tag = "1")]
     pub schema: ::prost::alloc::vec::Vec<u8>,
 }
@@ -111,11 +111,24 @@ pub mod flight_descriptor {
         ///
         /// A named path that identifies a dataset. A path is composed of a string
         /// or list of strings describing a particular dataset. This is conceptually
-        ///  similar to a path inside a filesystem.
+        ///   similar to a path inside a filesystem.
         Path = 1,
         ///
         /// An opaque command to generate a dataset.
         Cmd = 2,
+    }
+    impl DescriptorType {
+        /// String value of the enum field names used in the ProtoBuf definition.
+        ///
+        /// The values are not transformed in any way and thus are considered stable
+        /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+        pub fn as_str_name(&self) -> &'static str {
+            match self {
+                DescriptorType::Unknown => "UNKNOWN",
+                DescriptorType::Path => "PATH",
+                DescriptorType::Cmd => "CMD",
+            }
+        }
     }
 }
 ///
@@ -124,9 +137,9 @@ pub mod flight_descriptor {
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct FlightInfo {
     /// The schema of the dataset in its IPC form:
-    ///   4 bytes - an optional IPC_CONTINUATION_TOKEN prefix
-    ///   4 bytes - the byte length of the payload
-    ///   a flatbuffer Message whose header is the Schema
+    ///    4 bytes - an optional IPC_CONTINUATION_TOKEN prefix
+    ///    4 bytes - the byte length of the payload
+    ///    a flatbuffer Message whose header is the Schema
     #[prost(bytes = "vec", tag = "1")]
     pub schema: ::prost::alloc::vec::Vec<u8>,
     ///
@@ -221,7 +234,7 @@ pub struct FlightData {
     #[prost(bytes = "vec", tag = "1000")]
     pub data_body: ::prost::alloc::vec::Vec<u8>,
 }
-///*
+/// *
 /// The response message associated with the submission of a DoPut.
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct PutResult {
