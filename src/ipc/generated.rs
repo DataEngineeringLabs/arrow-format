@@ -3765,166 +3765,6 @@ mod root {
                         ::serde::Serialize,
                         ::serde::Deserialize,
                     )]
-                    pub struct RunEndEncoded {}
-
-                    #[allow(clippy::derivable_impls)]
-                    impl ::core::default::Default for RunEndEncoded {
-                        fn default() -> Self {
-                            Self {}
-                        }
-                    }
-
-                    impl RunEndEncoded {
-                        #[allow(clippy::too_many_arguments)]
-                        pub fn create(builder: &mut ::planus::Builder) -> ::planus::Offset<Self> {
-                            let mut table_writer =
-                                ::planus::table_writer::TableWriter::<4, 0>::new(builder);
-
-                            table_writer.finish_calculating();
-
-                            table_writer.finish()
-                        }
-                    }
-
-                    impl ::planus::WriteAs<::planus::Offset<RunEndEncoded>> for RunEndEncoded {
-                        type Prepared = ::planus::Offset<Self>;
-
-                        fn prepare(
-                            &self,
-                            builder: &mut ::planus::Builder,
-                        ) -> ::planus::Offset<RunEndEncoded> {
-                            ::planus::WriteAsOffset::prepare(self, builder)
-                        }
-                    }
-
-                    impl ::planus::WriteAsOptional<::planus::Offset<RunEndEncoded>> for RunEndEncoded {
-                        type Prepared = ::planus::Offset<Self>;
-
-                        fn prepare(
-                            &self,
-                            builder: &mut ::planus::Builder,
-                        ) -> ::core::option::Option<::planus::Offset<RunEndEncoded>>
-                        {
-                            ::core::option::Option::Some(::planus::WriteAsOffset::prepare(
-                                self, builder,
-                            ))
-                        }
-                    }
-
-                    impl ::planus::WriteAsOffset<RunEndEncoded> for RunEndEncoded {
-                        fn prepare(
-                            &self,
-                            builder: &mut ::planus::Builder,
-                        ) -> ::planus::Offset<RunEndEncoded> {
-                            RunEndEncoded::create(builder)
-                        }
-                    }
-
-                    #[derive(Copy, Clone)]
-                    pub struct RunEndEncodedRef<'a>(::planus::table_reader::Table<'a>);
-
-                    impl<'a> RunEndEncodedRef<'a> {}
-
-                    impl<'a> ::core::fmt::Debug for RunEndEncodedRef<'a> {
-                        fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
-                            let mut f = f.debug_struct("RunEndEncodedRef");
-
-                            f.finish()
-                        }
-                    }
-
-                    impl<'a> ::core::convert::TryFrom<RunEndEncodedRef<'a>> for RunEndEncoded {
-                        type Error = ::planus::Error;
-
-                        fn try_from(_value: RunEndEncodedRef<'a>) -> ::planus::Result<Self> {
-                            ::core::result::Result::Ok(Self {})
-                        }
-                    }
-
-                    impl<'a> ::planus::TableRead<'a> for RunEndEncodedRef<'a> {
-                        fn from_buffer(
-                            buffer: ::planus::SliceWithStartOffset<'a>,
-                            offset: usize,
-                        ) -> ::core::result::Result<Self, ::planus::errors::ErrorKind>
-                        {
-                            ::core::result::Result::Ok(Self(
-                                ::planus::table_reader::Table::from_buffer(buffer, offset)?,
-                            ))
-                        }
-                    }
-
-                    impl<'a> ::planus::VectorReadInner<'a> for RunEndEncodedRef<'a> {
-                        type Error = ::planus::Error;
-                        const STRIDE: usize = 4;
-
-                        unsafe fn from_buffer(
-                            buffer: ::planus::SliceWithStartOffset<'a>,
-                            offset: usize,
-                        ) -> ::planus::Result<Self> {
-                            ::planus::TableRead::from_buffer(buffer, offset).map_err(|error_kind| {
-                                error_kind.with_error_location(
-                                    "[RunEndEncodedRef]",
-                                    "get",
-                                    buffer.offset_from_start,
-                                )
-                            })
-                        }
-                    }
-
-                    impl ::planus::VectorWrite<::planus::Offset<RunEndEncoded>> for RunEndEncoded {
-                        type Value = ::planus::Offset<RunEndEncoded>;
-                        const STRIDE: usize = 4;
-                        fn prepare(&self, builder: &mut ::planus::Builder) -> Self::Value {
-                            ::planus::WriteAs::prepare(self, builder)
-                        }
-
-                        #[inline]
-                        unsafe fn write_values(
-                            values: &[::planus::Offset<RunEndEncoded>],
-                            bytes: *mut ::core::mem::MaybeUninit<u8>,
-                            buffer_position: u32,
-                        ) {
-                            let bytes = bytes as *mut [::core::mem::MaybeUninit<u8>; 4];
-                            for (i, v) in ::core::iter::Iterator::enumerate(values.iter()) {
-                                ::planus::WriteAsPrimitive::write(
-                                    v,
-                                    ::planus::Cursor::new(&mut *bytes.add(i)),
-                                    buffer_position - (Self::STRIDE * i) as u32,
-                                );
-                            }
-                        }
-                    }
-
-                    impl<'a> ::planus::ReadAsRoot<'a> for RunEndEncodedRef<'a> {
-                        fn read_as_root(slice: &'a [u8]) -> ::planus::Result<Self> {
-                            ::planus::TableRead::from_buffer(
-                                ::planus::SliceWithStartOffset {
-                                    buffer: slice,
-                                    offset_from_start: 0,
-                                },
-                                0,
-                            )
-                            .map_err(|error_kind| {
-                                error_kind.with_error_location(
-                                    "[RunEndEncodedRef]",
-                                    "read_as_root",
-                                    0,
-                                )
-                            })
-                        }
-                    }
-
-                    #[derive(
-                        Clone,
-                        Debug,
-                        PartialEq,
-                        PartialOrd,
-                        Eq,
-                        Ord,
-                        Hash,
-                        ::serde::Serialize,
-                        ::serde::Deserialize,
-                    )]
                     pub struct Decimal {
                         pub precision: i32,
                         pub scale: i32,
@@ -5640,7 +5480,6 @@ mod root {
                         LargeBinary(::planus::alloc::boxed::Box<self::LargeBinary>),
                         LargeUtf8(::planus::alloc::boxed::Box<self::LargeUtf8>),
                         LargeList(::planus::alloc::boxed::Box<self::LargeList>),
-                        RunEndEncoded(::planus::alloc::boxed::Box<self::RunEndEncoded>),
                     }
 
                     impl Type {
@@ -5790,13 +5629,6 @@ mod root {
                         ) -> ::planus::UnionOffset<Self> {
                             ::planus::UnionOffset::new(21, value.prepare(builder).downcast())
                         }
-
-                        pub fn create_run_end_encoded(
-                            builder: &mut ::planus::Builder,
-                            value: impl ::planus::WriteAsOffset<self::RunEndEncoded>,
-                        ) -> ::planus::UnionOffset<Self> {
-                            ::planus::UnionOffset::new(22, value.prepare(builder).downcast())
-                        }
                     }
 
                     impl ::planus::WriteAsUnion<Type> for Type {
@@ -5834,9 +5666,6 @@ mod root {
                                 }
                                 Self::LargeUtf8(value) => Self::create_large_utf8(builder, value),
                                 Self::LargeList(value) => Self::create_large_list(builder, value),
-                                Self::RunEndEncoded(value) => {
-                                    Self::create_run_end_encoded(builder, value)
-                                }
                             }
                         }
                     }
@@ -5876,7 +5705,6 @@ mod root {
                         LargeBinary(self::LargeBinaryRef<'a>),
                         LargeUtf8(self::LargeUtf8Ref<'a>),
                         LargeList(self::LargeListRef<'a>),
-                        RunEndEncoded(self::RunEndEncodedRef<'a>),
                     }
 
                     impl<'a> ::core::convert::TryFrom<TypeRef<'a>> for Type {
@@ -6005,12 +5833,6 @@ mod root {
                                         ::core::convert::TryFrom::try_from(value)?,
                                     ))
                                 }
-
-                                TypeRef::RunEndEncoded(value) => {
-                                    Type::RunEndEncoded(::planus::alloc::boxed::Box::new(
-                                        ::core::convert::TryFrom::try_from(value)?,
-                                    ))
-                                }
                             })
                         }
                     }
@@ -6084,9 +5906,6 @@ mod root {
                                     ::planus::TableRead::from_buffer(buffer, field_offset)?,
                                 )),
                                 21 => ::core::result::Result::Ok(Self::LargeList(
-                                    ::planus::TableRead::from_buffer(buffer, field_offset)?,
-                                )),
-                                22 => ::core::result::Result::Ok(Self::RunEndEncoded(
                                     ::planus::TableRead::from_buffer(buffer, field_offset)?,
                                 )),
                                 _ => ::core::result::Result::Err(
