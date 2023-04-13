@@ -1,11 +1,24 @@
 pub use root::*;
+
+const _: () = ::planus::check_version_compatibility("planus-0.3.1");
+
 #[no_implicit_prelude]
 mod root {
     pub mod org {
         pub mod apache {
             pub mod arrow {
                 pub mod flatbuf {
-                    #[derive(Clone, Debug, PartialEq, ::serde::Serialize, ::serde::Deserialize)]
+                    #[derive(
+                        Clone,
+                        Debug,
+                        PartialEq,
+                        PartialOrd,
+                        Eq,
+                        Ord,
+                        Hash,
+                        ::serde::Serialize,
+                        ::serde::Deserialize,
+                    )]
                     pub struct Footer {
                         pub version: self::MetadataVersion,
                         pub schema:
@@ -18,35 +31,48 @@ mod root {
                             ::core::option::Option<::planus::alloc::vec::Vec<self::KeyValue>>,
                     }
 
+                    #[allow(clippy::derivable_impls)]
+                    impl ::core::default::Default for Footer {
+                        fn default() -> Self {
+                            Self {
+                                version: self::MetadataVersion::V1,
+                                schema: ::core::default::Default::default(),
+                                dictionaries: ::core::default::Default::default(),
+                                record_batches: ::core::default::Default::default(),
+                                custom_metadata: ::core::default::Default::default(),
+                            }
+                        }
+                    }
+
                     impl Footer {
                         #[allow(clippy::too_many_arguments)]
                         pub fn create(
                             builder: &mut ::planus::Builder,
-                            version: impl ::planus::WriteAsDefault<
+                            field_version: impl ::planus::WriteAsDefault<
                                 self::MetadataVersion,
                                 self::MetadataVersion,
                             >,
-                            schema: impl ::planus::WriteAsOptional<::planus::Offset<self::Schema>>,
-                            dictionaries: impl ::planus::WriteAsOptional<
+                            field_schema: impl ::planus::WriteAsOptional<::planus::Offset<self::Schema>>,
+                            field_dictionaries: impl ::planus::WriteAsOptional<
                                 ::planus::Offset<[self::Block]>,
                             >,
-                            record_batches: impl ::planus::WriteAsOptional<
+                            field_record_batches: impl ::planus::WriteAsOptional<
                                 ::planus::Offset<[self::Block]>,
                             >,
-                            custom_metadata: impl ::planus::WriteAsOptional<
+                            field_custom_metadata: impl ::planus::WriteAsOptional<
                                 ::planus::Offset<[::planus::Offset<self::KeyValue>]>,
                             >,
                         ) -> ::planus::Offset<Self> {
                             let prepared_version =
-                                version.prepare(builder, &self::MetadataVersion::V1);
+                                field_version.prepare(builder, &self::MetadataVersion::V1);
 
-                            let prepared_schema = schema.prepare(builder);
+                            let prepared_schema = field_schema.prepare(builder);
 
-                            let prepared_dictionaries = dictionaries.prepare(builder);
+                            let prepared_dictionaries = field_dictionaries.prepare(builder);
 
-                            let prepared_record_batches = record_batches.prepare(builder);
+                            let prepared_record_batches = field_record_batches.prepare(builder);
 
-                            let prepared_custom_metadata = custom_metadata.prepare(builder);
+                            let prepared_custom_metadata = field_custom_metadata.prepare(builder);
 
                             let mut table_writer =
                                 ::planus::table_writer::TableWriter::<12, 18>::new(builder);
@@ -192,24 +218,25 @@ mod root {
                         fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
                             let mut f = f.debug_struct("FooterRef");
                             f.field("version", &self.version());
-                            if let ::core::option::Option::Some(schema) = self.schema().transpose()
+                            if let ::core::option::Option::Some(field_schema) =
+                                self.schema().transpose()
                             {
-                                f.field("schema", &schema);
+                                f.field("schema", &field_schema);
                             }
-                            if let ::core::option::Option::Some(dictionaries) =
+                            if let ::core::option::Option::Some(field_dictionaries) =
                                 self.dictionaries().transpose()
                             {
-                                f.field("dictionaries", &dictionaries);
+                                f.field("dictionaries", &field_dictionaries);
                             }
-                            if let ::core::option::Option::Some(record_batches) =
+                            if let ::core::option::Option::Some(field_record_batches) =
                                 self.record_batches().transpose()
                             {
-                                f.field("record_batches", &record_batches);
+                                f.field("record_batches", &field_record_batches);
                             }
-                            if let ::core::option::Option::Some(custom_metadata) =
+                            if let ::core::option::Option::Some(field_custom_metadata) =
                                 self.custom_metadata().transpose()
                             {
-                                f.field("custom_metadata", &custom_metadata);
+                                f.field("custom_metadata", &field_custom_metadata);
                             }
                             f.finish()
                         }
@@ -328,7 +355,17 @@ mod root {
                     }
 
                     #[derive(
-                        Copy, Clone, Debug, PartialEq, ::serde::Serialize, ::serde::Deserialize,
+                        Copy,
+                        Clone,
+                        Debug,
+                        PartialEq,
+                        PartialOrd,
+                        Eq,
+                        Ord,
+                        Hash,
+                        Default,
+                        ::serde::Serialize,
+                        ::serde::Deserialize,
                     )]
                     pub struct Block {
                         pub offset: i64,
@@ -356,6 +393,29 @@ mod root {
                             let (cur, cursor) = cursor.split::<8, 0>();
                             self.body_length.write(cur, buffer_position - 16);
                             cursor.finish([]);
+                        }
+                    }
+
+                    impl ::planus::WriteAsOffset<Block> for Block {
+                        fn prepare(
+                            &self,
+                            builder: &mut ::planus::Builder,
+                        ) -> ::planus::Offset<Block> {
+                            unsafe {
+                                builder.write_with(24, 8, |buffer_position, bytes| {
+                                    let bytes = bytes.as_mut_ptr();
+
+                                    ::planus::WriteAsPrimitive::write(
+                                        self,
+                                        ::planus::Cursor::new(
+                                            &mut *(bytes
+                                                as *mut [::core::mem::MaybeUninit<u8>; 24]),
+                                        ),
+                                        buffer_position,
+                                    );
+                                });
+                            }
+                            builder.current_offset()
                         }
                     }
 
@@ -471,7 +531,16 @@ mod root {
                     }
 
                     #[derive(
-                        Copy, Clone, Debug, PartialEq, Eq, ::serde::Serialize, ::serde::Deserialize,
+                        Copy,
+                        Clone,
+                        Debug,
+                        PartialEq,
+                        Eq,
+                        PartialOrd,
+                        Ord,
+                        Hash,
+                        ::serde::Serialize,
+                        ::serde::Deserialize,
                     )]
                     #[repr(i16)]
                     pub enum MetadataVersion {
@@ -596,12 +665,12 @@ mod root {
                         }
                     }
 
-                    impl<'buf> ::planus::VectorWrite<MetadataVersion> for MetadataVersion {
+                    impl ::planus::VectorWrite<MetadataVersion> for MetadataVersion {
                         const STRIDE: usize = 2;
 
                         type Value = Self;
 
-                        fn prepare(&self, _builder: &mut ::planus::Builder) -> Self::Value {
+                        fn prepare(&self, _builder: &mut ::planus::Builder) -> Self {
                             *self
                         }
 
@@ -623,7 +692,16 @@ mod root {
                     }
 
                     #[derive(
-                        Copy, Clone, Debug, PartialEq, Eq, ::serde::Serialize, ::serde::Deserialize,
+                        Copy,
+                        Clone,
+                        Debug,
+                        PartialEq,
+                        Eq,
+                        PartialOrd,
+                        Ord,
+                        Hash,
+                        ::serde::Serialize,
+                        ::serde::Deserialize,
                     )]
                     #[repr(i64)]
                     pub enum Feature {
@@ -744,12 +822,12 @@ mod root {
                         }
                     }
 
-                    impl<'buf> ::planus::VectorWrite<Feature> for Feature {
+                    impl ::planus::VectorWrite<Feature> for Feature {
                         const STRIDE: usize = 8;
 
                         type Value = Self;
 
-                        fn prepare(&self, _builder: &mut ::planus::Builder) -> Self::Value {
+                        fn prepare(&self, _builder: &mut ::planus::Builder) -> Self {
                             *self
                         }
 
@@ -770,8 +848,25 @@ mod root {
                         }
                     }
 
-                    #[derive(Clone, Debug, PartialEq, ::serde::Serialize, ::serde::Deserialize)]
+                    #[derive(
+                        Clone,
+                        Debug,
+                        PartialEq,
+                        PartialOrd,
+                        Eq,
+                        Ord,
+                        Hash,
+                        ::serde::Serialize,
+                        ::serde::Deserialize,
+                    )]
                     pub struct Null {}
+
+                    #[allow(clippy::derivable_impls)]
+                    impl ::core::default::Default for Null {
+                        fn default() -> Self {
+                            Self {}
+                        }
+                    }
 
                     impl Null {
                         #[allow(clippy::too_many_arguments)]
@@ -909,8 +1004,25 @@ mod root {
                         }
                     }
 
-                    #[derive(Clone, Debug, PartialEq, ::serde::Serialize, ::serde::Deserialize)]
+                    #[derive(
+                        Clone,
+                        Debug,
+                        PartialEq,
+                        PartialOrd,
+                        Eq,
+                        Ord,
+                        Hash,
+                        ::serde::Serialize,
+                        ::serde::Deserialize,
+                    )]
                     pub struct Struct {}
+
+                    #[allow(clippy::derivable_impls)]
+                    impl ::core::default::Default for Struct {
+                        fn default() -> Self {
+                            Self {}
+                        }
+                    }
 
                     impl Struct {
                         #[allow(clippy::too_many_arguments)]
@@ -1048,8 +1160,25 @@ mod root {
                         }
                     }
 
-                    #[derive(Clone, Debug, PartialEq, ::serde::Serialize, ::serde::Deserialize)]
+                    #[derive(
+                        Clone,
+                        Debug,
+                        PartialEq,
+                        PartialOrd,
+                        Eq,
+                        Ord,
+                        Hash,
+                        ::serde::Serialize,
+                        ::serde::Deserialize,
+                    )]
                     pub struct List {}
+
+                    #[allow(clippy::derivable_impls)]
+                    impl ::core::default::Default for List {
+                        fn default() -> Self {
+                            Self {}
+                        }
+                    }
 
                     impl List {
                         #[allow(clippy::too_many_arguments)]
@@ -1187,8 +1316,25 @@ mod root {
                         }
                     }
 
-                    #[derive(Clone, Debug, PartialEq, ::serde::Serialize, ::serde::Deserialize)]
+                    #[derive(
+                        Clone,
+                        Debug,
+                        PartialEq,
+                        PartialOrd,
+                        Eq,
+                        Ord,
+                        Hash,
+                        ::serde::Serialize,
+                        ::serde::Deserialize,
+                    )]
                     pub struct LargeList {}
+
+                    #[allow(clippy::derivable_impls)]
+                    impl ::core::default::Default for LargeList {
+                        fn default() -> Self {
+                            Self {}
+                        }
+                    }
 
                     impl LargeList {
                         #[allow(clippy::too_many_arguments)]
@@ -1326,18 +1472,35 @@ mod root {
                         }
                     }
 
-                    #[derive(Clone, Debug, PartialEq, ::serde::Serialize, ::serde::Deserialize)]
+                    #[derive(
+                        Clone,
+                        Debug,
+                        PartialEq,
+                        PartialOrd,
+                        Eq,
+                        Ord,
+                        Hash,
+                        ::serde::Serialize,
+                        ::serde::Deserialize,
+                    )]
                     pub struct FixedSizeList {
                         pub list_size: i32,
+                    }
+
+                    #[allow(clippy::derivable_impls)]
+                    impl ::core::default::Default for FixedSizeList {
+                        fn default() -> Self {
+                            Self { list_size: 0 }
+                        }
                     }
 
                     impl FixedSizeList {
                         #[allow(clippy::too_many_arguments)]
                         pub fn create(
                             builder: &mut ::planus::Builder,
-                            list_size: impl ::planus::WriteAsDefault<i32, i32>,
+                            field_list_size: impl ::planus::WriteAsDefault<i32, i32>,
                         ) -> ::planus::Offset<Self> {
-                            let prepared_list_size = list_size.prepare(builder, &0);
+                            let prepared_list_size = field_list_size.prepare(builder, &0);
 
                             let mut table_writer =
                                 ::planus::table_writer::TableWriter::<4, 4>::new(builder);
@@ -1497,18 +1660,35 @@ mod root {
                         }
                     }
 
-                    #[derive(Clone, Debug, PartialEq, ::serde::Serialize, ::serde::Deserialize)]
+                    #[derive(
+                        Clone,
+                        Debug,
+                        PartialEq,
+                        PartialOrd,
+                        Eq,
+                        Ord,
+                        Hash,
+                        ::serde::Serialize,
+                        ::serde::Deserialize,
+                    )]
                     pub struct Map {
                         pub keys_sorted: bool,
+                    }
+
+                    #[allow(clippy::derivable_impls)]
+                    impl ::core::default::Default for Map {
+                        fn default() -> Self {
+                            Self { keys_sorted: false }
+                        }
                     }
 
                     impl Map {
                         #[allow(clippy::too_many_arguments)]
                         pub fn create(
                             builder: &mut ::planus::Builder,
-                            keys_sorted: impl ::planus::WriteAsDefault<bool, bool>,
+                            field_keys_sorted: impl ::planus::WriteAsDefault<bool, bool>,
                         ) -> ::planus::Offset<Self> {
-                            let prepared_keys_sorted = keys_sorted.prepare(builder, &false);
+                            let prepared_keys_sorted = field_keys_sorted.prepare(builder, &false);
 
                             let mut table_writer =
                                 ::planus::table_writer::TableWriter::<4, 1>::new(builder);
@@ -1666,7 +1846,16 @@ mod root {
                     }
 
                     #[derive(
-                        Copy, Clone, Debug, PartialEq, Eq, ::serde::Serialize, ::serde::Deserialize,
+                        Copy,
+                        Clone,
+                        Debug,
+                        PartialEq,
+                        Eq,
+                        PartialOrd,
+                        Ord,
+                        Hash,
+                        ::serde::Serialize,
+                        ::serde::Deserialize,
                     )]
                     #[repr(i16)]
                     pub enum UnionMode {
@@ -1785,12 +1974,12 @@ mod root {
                         }
                     }
 
-                    impl<'buf> ::planus::VectorWrite<UnionMode> for UnionMode {
+                    impl ::planus::VectorWrite<UnionMode> for UnionMode {
                         const STRIDE: usize = 2;
 
                         type Value = Self;
 
-                        fn prepare(&self, _builder: &mut ::planus::Builder) -> Self::Value {
+                        fn prepare(&self, _builder: &mut ::planus::Builder) -> Self {
                             *self
                         }
 
@@ -1811,22 +2000,43 @@ mod root {
                         }
                     }
 
-                    #[derive(Clone, Debug, PartialEq, ::serde::Serialize, ::serde::Deserialize)]
+                    #[derive(
+                        Clone,
+                        Debug,
+                        PartialEq,
+                        PartialOrd,
+                        Eq,
+                        Ord,
+                        Hash,
+                        ::serde::Serialize,
+                        ::serde::Deserialize,
+                    )]
                     pub struct Union {
                         pub mode: self::UnionMode,
                         pub type_ids: ::core::option::Option<::planus::alloc::vec::Vec<i32>>,
+                    }
+
+                    #[allow(clippy::derivable_impls)]
+                    impl ::core::default::Default for Union {
+                        fn default() -> Self {
+                            Self {
+                                mode: self::UnionMode::Sparse,
+                                type_ids: ::core::default::Default::default(),
+                            }
+                        }
                     }
 
                     impl Union {
                         #[allow(clippy::too_many_arguments)]
                         pub fn create(
                             builder: &mut ::planus::Builder,
-                            mode: impl ::planus::WriteAsDefault<self::UnionMode, self::UnionMode>,
-                            type_ids: impl ::planus::WriteAsOptional<::planus::Offset<[i32]>>,
+                            field_mode: impl ::planus::WriteAsDefault<self::UnionMode, self::UnionMode>,
+                            field_type_ids: impl ::planus::WriteAsOptional<::planus::Offset<[i32]>>,
                         ) -> ::planus::Offset<Self> {
-                            let prepared_mode = mode.prepare(builder, &self::UnionMode::Sparse);
+                            let prepared_mode =
+                                field_mode.prepare(builder, &self::UnionMode::Sparse);
 
-                            let prepared_type_ids = type_ids.prepare(builder);
+                            let prepared_type_ids = field_type_ids.prepare(builder);
 
                             let mut table_writer =
                                 ::planus::table_writer::TableWriter::<6, 6>::new(builder);
@@ -1913,10 +2123,10 @@ mod root {
                         fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
                             let mut f = f.debug_struct("UnionRef");
                             f.field("mode", &self.mode());
-                            if let ::core::option::Option::Some(type_ids) =
+                            if let ::core::option::Option::Some(field_type_ids) =
                                 self.type_ids().transpose()
                             {
-                                f.field("type_ids", &type_ids);
+                                f.field("type_ids", &field_type_ids);
                             }
                             f.finish()
                         }
@@ -2009,22 +2219,42 @@ mod root {
                         }
                     }
 
-                    #[derive(Clone, Debug, PartialEq, ::serde::Serialize, ::serde::Deserialize)]
+                    #[derive(
+                        Clone,
+                        Debug,
+                        PartialEq,
+                        PartialOrd,
+                        Eq,
+                        Ord,
+                        Hash,
+                        ::serde::Serialize,
+                        ::serde::Deserialize,
+                    )]
                     pub struct Int {
                         pub bit_width: i32,
                         pub is_signed: bool,
+                    }
+
+                    #[allow(clippy::derivable_impls)]
+                    impl ::core::default::Default for Int {
+                        fn default() -> Self {
+                            Self {
+                                bit_width: 0,
+                                is_signed: false,
+                            }
+                        }
                     }
 
                     impl Int {
                         #[allow(clippy::too_many_arguments)]
                         pub fn create(
                             builder: &mut ::planus::Builder,
-                            bit_width: impl ::planus::WriteAsDefault<i32, i32>,
-                            is_signed: impl ::planus::WriteAsDefault<bool, bool>,
+                            field_bit_width: impl ::planus::WriteAsDefault<i32, i32>,
+                            field_is_signed: impl ::planus::WriteAsDefault<bool, bool>,
                         ) -> ::planus::Offset<Self> {
-                            let prepared_bit_width = bit_width.prepare(builder, &0);
+                            let prepared_bit_width = field_bit_width.prepare(builder, &0);
 
-                            let prepared_is_signed = is_signed.prepare(builder, &false);
+                            let prepared_is_signed = field_is_signed.prepare(builder, &false);
 
                             let mut table_writer =
                                 ::planus::table_writer::TableWriter::<6, 5>::new(builder);
@@ -2196,7 +2426,16 @@ mod root {
                     }
 
                     #[derive(
-                        Copy, Clone, Debug, PartialEq, Eq, ::serde::Serialize, ::serde::Deserialize,
+                        Copy,
+                        Clone,
+                        Debug,
+                        PartialEq,
+                        Eq,
+                        PartialOrd,
+                        Ord,
+                        Hash,
+                        ::serde::Serialize,
+                        ::serde::Deserialize,
                     )]
                     #[repr(i16)]
                     pub enum Precision {
@@ -2317,12 +2556,12 @@ mod root {
                         }
                     }
 
-                    impl<'buf> ::planus::VectorWrite<Precision> for Precision {
+                    impl ::planus::VectorWrite<Precision> for Precision {
                         const STRIDE: usize = 2;
 
                         type Value = Self;
 
-                        fn prepare(&self, _builder: &mut ::planus::Builder) -> Self::Value {
+                        fn prepare(&self, _builder: &mut ::planus::Builder) -> Self {
                             *self
                         }
 
@@ -2343,19 +2582,41 @@ mod root {
                         }
                     }
 
-                    #[derive(Clone, Debug, PartialEq, ::serde::Serialize, ::serde::Deserialize)]
+                    #[derive(
+                        Clone,
+                        Debug,
+                        PartialEq,
+                        PartialOrd,
+                        Eq,
+                        Ord,
+                        Hash,
+                        ::serde::Serialize,
+                        ::serde::Deserialize,
+                    )]
                     pub struct FloatingPoint {
                         pub precision: self::Precision,
+                    }
+
+                    #[allow(clippy::derivable_impls)]
+                    impl ::core::default::Default for FloatingPoint {
+                        fn default() -> Self {
+                            Self {
+                                precision: self::Precision::Half,
+                            }
+                        }
                     }
 
                     impl FloatingPoint {
                         #[allow(clippy::too_many_arguments)]
                         pub fn create(
                             builder: &mut ::planus::Builder,
-                            precision: impl ::planus::WriteAsDefault<self::Precision, self::Precision>,
+                            field_precision: impl ::planus::WriteAsDefault<
+                                self::Precision,
+                                self::Precision,
+                            >,
                         ) -> ::planus::Offset<Self> {
                             let prepared_precision =
-                                precision.prepare(builder, &self::Precision::Half);
+                                field_precision.prepare(builder, &self::Precision::Half);
 
                             let mut table_writer =
                                 ::planus::table_writer::TableWriter::<4, 2>::new(builder);
@@ -2517,8 +2778,25 @@ mod root {
                         }
                     }
 
-                    #[derive(Clone, Debug, PartialEq, ::serde::Serialize, ::serde::Deserialize)]
+                    #[derive(
+                        Clone,
+                        Debug,
+                        PartialEq,
+                        PartialOrd,
+                        Eq,
+                        Ord,
+                        Hash,
+                        ::serde::Serialize,
+                        ::serde::Deserialize,
+                    )]
                     pub struct Utf8 {}
+
+                    #[allow(clippy::derivable_impls)]
+                    impl ::core::default::Default for Utf8 {
+                        fn default() -> Self {
+                            Self {}
+                        }
+                    }
 
                     impl Utf8 {
                         #[allow(clippy::too_many_arguments)]
@@ -2656,8 +2934,25 @@ mod root {
                         }
                     }
 
-                    #[derive(Clone, Debug, PartialEq, ::serde::Serialize, ::serde::Deserialize)]
+                    #[derive(
+                        Clone,
+                        Debug,
+                        PartialEq,
+                        PartialOrd,
+                        Eq,
+                        Ord,
+                        Hash,
+                        ::serde::Serialize,
+                        ::serde::Deserialize,
+                    )]
                     pub struct Binary {}
+
+                    #[allow(clippy::derivable_impls)]
+                    impl ::core::default::Default for Binary {
+                        fn default() -> Self {
+                            Self {}
+                        }
+                    }
 
                     impl Binary {
                         #[allow(clippy::too_many_arguments)]
@@ -2795,8 +3090,25 @@ mod root {
                         }
                     }
 
-                    #[derive(Clone, Debug, PartialEq, ::serde::Serialize, ::serde::Deserialize)]
+                    #[derive(
+                        Clone,
+                        Debug,
+                        PartialEq,
+                        PartialOrd,
+                        Eq,
+                        Ord,
+                        Hash,
+                        ::serde::Serialize,
+                        ::serde::Deserialize,
+                    )]
                     pub struct LargeUtf8 {}
+
+                    #[allow(clippy::derivable_impls)]
+                    impl ::core::default::Default for LargeUtf8 {
+                        fn default() -> Self {
+                            Self {}
+                        }
+                    }
 
                     impl LargeUtf8 {
                         #[allow(clippy::too_many_arguments)]
@@ -2934,8 +3246,25 @@ mod root {
                         }
                     }
 
-                    #[derive(Clone, Debug, PartialEq, ::serde::Serialize, ::serde::Deserialize)]
+                    #[derive(
+                        Clone,
+                        Debug,
+                        PartialEq,
+                        PartialOrd,
+                        Eq,
+                        Ord,
+                        Hash,
+                        ::serde::Serialize,
+                        ::serde::Deserialize,
+                    )]
                     pub struct LargeBinary {}
+
+                    #[allow(clippy::derivable_impls)]
+                    impl ::core::default::Default for LargeBinary {
+                        fn default() -> Self {
+                            Self {}
+                        }
+                    }
 
                     impl LargeBinary {
                         #[allow(clippy::too_many_arguments)]
@@ -3077,18 +3406,35 @@ mod root {
                         }
                     }
 
-                    #[derive(Clone, Debug, PartialEq, ::serde::Serialize, ::serde::Deserialize)]
+                    #[derive(
+                        Clone,
+                        Debug,
+                        PartialEq,
+                        PartialOrd,
+                        Eq,
+                        Ord,
+                        Hash,
+                        ::serde::Serialize,
+                        ::serde::Deserialize,
+                    )]
                     pub struct FixedSizeBinary {
                         pub byte_width: i32,
+                    }
+
+                    #[allow(clippy::derivable_impls)]
+                    impl ::core::default::Default for FixedSizeBinary {
+                        fn default() -> Self {
+                            Self { byte_width: 0 }
+                        }
                     }
 
                     impl FixedSizeBinary {
                         #[allow(clippy::too_many_arguments)]
                         pub fn create(
                             builder: &mut ::planus::Builder,
-                            byte_width: impl ::planus::WriteAsDefault<i32, i32>,
+                            field_byte_width: impl ::planus::WriteAsDefault<i32, i32>,
                         ) -> ::planus::Offset<Self> {
-                            let prepared_byte_width = byte_width.prepare(builder, &0);
+                            let prepared_byte_width = field_byte_width.prepare(builder, &0);
 
                             let mut table_writer =
                                 ::planus::table_writer::TableWriter::<4, 4>::new(builder);
@@ -3252,8 +3598,25 @@ mod root {
                         }
                     }
 
-                    #[derive(Clone, Debug, PartialEq, ::serde::Serialize, ::serde::Deserialize)]
+                    #[derive(
+                        Clone,
+                        Debug,
+                        PartialEq,
+                        PartialOrd,
+                        Eq,
+                        Ord,
+                        Hash,
+                        ::serde::Serialize,
+                        ::serde::Deserialize,
+                    )]
                     pub struct Bool {}
+
+                    #[allow(clippy::derivable_impls)]
+                    impl ::core::default::Default for Bool {
+                        fn default() -> Self {
+                            Self {}
+                        }
+                    }
 
                     impl Bool {
                         #[allow(clippy::too_many_arguments)]
@@ -3391,26 +3754,207 @@ mod root {
                         }
                     }
 
-                    #[derive(Clone, Debug, PartialEq, ::serde::Serialize, ::serde::Deserialize)]
+                    #[derive(
+                        Clone,
+                        Debug,
+                        PartialEq,
+                        PartialOrd,
+                        Eq,
+                        Ord,
+                        Hash,
+                        ::serde::Serialize,
+                        ::serde::Deserialize,
+                    )]
+                    pub struct RunEndEncoded {}
+
+                    #[allow(clippy::derivable_impls)]
+                    impl ::core::default::Default for RunEndEncoded {
+                        fn default() -> Self {
+                            Self {}
+                        }
+                    }
+
+                    impl RunEndEncoded {
+                        #[allow(clippy::too_many_arguments)]
+                        pub fn create(builder: &mut ::planus::Builder) -> ::planus::Offset<Self> {
+                            let mut table_writer =
+                                ::planus::table_writer::TableWriter::<4, 0>::new(builder);
+
+                            table_writer.finish_calculating();
+
+                            table_writer.finish()
+                        }
+                    }
+
+                    impl ::planus::WriteAs<::planus::Offset<RunEndEncoded>> for RunEndEncoded {
+                        type Prepared = ::planus::Offset<Self>;
+
+                        fn prepare(
+                            &self,
+                            builder: &mut ::planus::Builder,
+                        ) -> ::planus::Offset<RunEndEncoded> {
+                            ::planus::WriteAsOffset::prepare(self, builder)
+                        }
+                    }
+
+                    impl ::planus::WriteAsOptional<::planus::Offset<RunEndEncoded>> for RunEndEncoded {
+                        type Prepared = ::planus::Offset<Self>;
+
+                        fn prepare(
+                            &self,
+                            builder: &mut ::planus::Builder,
+                        ) -> ::core::option::Option<::planus::Offset<RunEndEncoded>>
+                        {
+                            ::core::option::Option::Some(::planus::WriteAsOffset::prepare(
+                                self, builder,
+                            ))
+                        }
+                    }
+
+                    impl ::planus::WriteAsOffset<RunEndEncoded> for RunEndEncoded {
+                        fn prepare(
+                            &self,
+                            builder: &mut ::planus::Builder,
+                        ) -> ::planus::Offset<RunEndEncoded> {
+                            RunEndEncoded::create(builder)
+                        }
+                    }
+
+                    #[derive(Copy, Clone)]
+                    pub struct RunEndEncodedRef<'a>(::planus::table_reader::Table<'a>);
+
+                    impl<'a> RunEndEncodedRef<'a> {}
+
+                    impl<'a> ::core::fmt::Debug for RunEndEncodedRef<'a> {
+                        fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+                            let mut f = f.debug_struct("RunEndEncodedRef");
+
+                            f.finish()
+                        }
+                    }
+
+                    impl<'a> ::core::convert::TryFrom<RunEndEncodedRef<'a>> for RunEndEncoded {
+                        type Error = ::planus::Error;
+
+                        fn try_from(_value: RunEndEncodedRef<'a>) -> ::planus::Result<Self> {
+                            ::core::result::Result::Ok(Self {})
+                        }
+                    }
+
+                    impl<'a> ::planus::TableRead<'a> for RunEndEncodedRef<'a> {
+                        fn from_buffer(
+                            buffer: ::planus::SliceWithStartOffset<'a>,
+                            offset: usize,
+                        ) -> ::core::result::Result<Self, ::planus::errors::ErrorKind>
+                        {
+                            ::core::result::Result::Ok(Self(
+                                ::planus::table_reader::Table::from_buffer(buffer, offset)?,
+                            ))
+                        }
+                    }
+
+                    impl<'a> ::planus::VectorReadInner<'a> for RunEndEncodedRef<'a> {
+                        type Error = ::planus::Error;
+                        const STRIDE: usize = 4;
+
+                        unsafe fn from_buffer(
+                            buffer: ::planus::SliceWithStartOffset<'a>,
+                            offset: usize,
+                        ) -> ::planus::Result<Self> {
+                            ::planus::TableRead::from_buffer(buffer, offset).map_err(|error_kind| {
+                                error_kind.with_error_location(
+                                    "[RunEndEncodedRef]",
+                                    "get",
+                                    buffer.offset_from_start,
+                                )
+                            })
+                        }
+                    }
+
+                    impl ::planus::VectorWrite<::planus::Offset<RunEndEncoded>> for RunEndEncoded {
+                        type Value = ::planus::Offset<RunEndEncoded>;
+                        const STRIDE: usize = 4;
+                        fn prepare(&self, builder: &mut ::planus::Builder) -> Self::Value {
+                            ::planus::WriteAs::prepare(self, builder)
+                        }
+
+                        #[inline]
+                        unsafe fn write_values(
+                            values: &[::planus::Offset<RunEndEncoded>],
+                            bytes: *mut ::core::mem::MaybeUninit<u8>,
+                            buffer_position: u32,
+                        ) {
+                            let bytes = bytes as *mut [::core::mem::MaybeUninit<u8>; 4];
+                            for (i, v) in ::core::iter::Iterator::enumerate(values.iter()) {
+                                ::planus::WriteAsPrimitive::write(
+                                    v,
+                                    ::planus::Cursor::new(&mut *bytes.add(i)),
+                                    buffer_position - (Self::STRIDE * i) as u32,
+                                );
+                            }
+                        }
+                    }
+
+                    impl<'a> ::planus::ReadAsRoot<'a> for RunEndEncodedRef<'a> {
+                        fn read_as_root(slice: &'a [u8]) -> ::planus::Result<Self> {
+                            ::planus::TableRead::from_buffer(
+                                ::planus::SliceWithStartOffset {
+                                    buffer: slice,
+                                    offset_from_start: 0,
+                                },
+                                0,
+                            )
+                            .map_err(|error_kind| {
+                                error_kind.with_error_location(
+                                    "[RunEndEncodedRef]",
+                                    "read_as_root",
+                                    0,
+                                )
+                            })
+                        }
+                    }
+
+                    #[derive(
+                        Clone,
+                        Debug,
+                        PartialEq,
+                        PartialOrd,
+                        Eq,
+                        Ord,
+                        Hash,
+                        ::serde::Serialize,
+                        ::serde::Deserialize,
+                    )]
                     pub struct Decimal {
                         pub precision: i32,
                         pub scale: i32,
                         pub bit_width: i32,
                     }
 
+                    #[allow(clippy::derivable_impls)]
+                    impl ::core::default::Default for Decimal {
+                        fn default() -> Self {
+                            Self {
+                                precision: 0,
+                                scale: 0,
+                                bit_width: 128,
+                            }
+                        }
+                    }
+
                     impl Decimal {
                         #[allow(clippy::too_many_arguments)]
                         pub fn create(
                             builder: &mut ::planus::Builder,
-                            precision: impl ::planus::WriteAsDefault<i32, i32>,
-                            scale: impl ::planus::WriteAsDefault<i32, i32>,
-                            bit_width: impl ::planus::WriteAsDefault<i32, i32>,
+                            field_precision: impl ::planus::WriteAsDefault<i32, i32>,
+                            field_scale: impl ::planus::WriteAsDefault<i32, i32>,
+                            field_bit_width: impl ::planus::WriteAsDefault<i32, i32>,
                         ) -> ::planus::Offset<Self> {
-                            let prepared_precision = precision.prepare(builder, &0);
+                            let prepared_precision = field_precision.prepare(builder, &0);
 
-                            let prepared_scale = scale.prepare(builder, &0);
+                            let prepared_scale = field_scale.prepare(builder, &0);
 
-                            let prepared_bit_width = bit_width.prepare(builder, &128);
+                            let prepared_bit_width = field_bit_width.prepare(builder, &128);
 
                             let mut table_writer =
                                 ::planus::table_writer::TableWriter::<8, 12>::new(builder);
@@ -3598,7 +4142,16 @@ mod root {
                     }
 
                     #[derive(
-                        Copy, Clone, Debug, PartialEq, Eq, ::serde::Serialize, ::serde::Deserialize,
+                        Copy,
+                        Clone,
+                        Debug,
+                        PartialEq,
+                        Eq,
+                        PartialOrd,
+                        Ord,
+                        Hash,
+                        ::serde::Serialize,
+                        ::serde::Deserialize,
                     )]
                     #[repr(i16)]
                     pub enum DateUnit {
@@ -3717,12 +4270,12 @@ mod root {
                         }
                     }
 
-                    impl<'buf> ::planus::VectorWrite<DateUnit> for DateUnit {
+                    impl ::planus::VectorWrite<DateUnit> for DateUnit {
                         const STRIDE: usize = 2;
 
                         type Value = Self;
 
-                        fn prepare(&self, _builder: &mut ::planus::Builder) -> Self::Value {
+                        fn prepare(&self, _builder: &mut ::planus::Builder) -> Self {
                             *self
                         }
 
@@ -3743,18 +4296,38 @@ mod root {
                         }
                     }
 
-                    #[derive(Clone, Debug, PartialEq, ::serde::Serialize, ::serde::Deserialize)]
+                    #[derive(
+                        Clone,
+                        Debug,
+                        PartialEq,
+                        PartialOrd,
+                        Eq,
+                        Ord,
+                        Hash,
+                        ::serde::Serialize,
+                        ::serde::Deserialize,
+                    )]
                     pub struct Date {
                         pub unit: self::DateUnit,
+                    }
+
+                    #[allow(clippy::derivable_impls)]
+                    impl ::core::default::Default for Date {
+                        fn default() -> Self {
+                            Self {
+                                unit: self::DateUnit::Millisecond,
+                            }
+                        }
                     }
 
                     impl Date {
                         #[allow(clippy::too_many_arguments)]
                         pub fn create(
                             builder: &mut ::planus::Builder,
-                            unit: impl ::planus::WriteAsDefault<self::DateUnit, self::DateUnit>,
+                            field_unit: impl ::planus::WriteAsDefault<self::DateUnit, self::DateUnit>,
                         ) -> ::planus::Offset<Self> {
-                            let prepared_unit = unit.prepare(builder, &self::DateUnit::Millisecond);
+                            let prepared_unit =
+                                field_unit.prepare(builder, &self::DateUnit::Millisecond);
 
                             let mut table_writer =
                                 ::planus::table_writer::TableWriter::<4, 2>::new(builder);
@@ -3911,7 +4484,16 @@ mod root {
                     }
 
                     #[derive(
-                        Copy, Clone, Debug, PartialEq, Eq, ::serde::Serialize, ::serde::Deserialize,
+                        Copy,
+                        Clone,
+                        Debug,
+                        PartialEq,
+                        Eq,
+                        PartialOrd,
+                        Ord,
+                        Hash,
+                        ::serde::Serialize,
+                        ::serde::Deserialize,
                     )]
                     #[repr(i16)]
                     pub enum TimeUnit {
@@ -4034,12 +4616,12 @@ mod root {
                         }
                     }
 
-                    impl<'buf> ::planus::VectorWrite<TimeUnit> for TimeUnit {
+                    impl ::planus::VectorWrite<TimeUnit> for TimeUnit {
                         const STRIDE: usize = 2;
 
                         type Value = Self;
 
-                        fn prepare(&self, _builder: &mut ::planus::Builder) -> Self::Value {
+                        fn prepare(&self, _builder: &mut ::planus::Builder) -> Self {
                             *self
                         }
 
@@ -4060,22 +4642,43 @@ mod root {
                         }
                     }
 
-                    #[derive(Clone, Debug, PartialEq, ::serde::Serialize, ::serde::Deserialize)]
+                    #[derive(
+                        Clone,
+                        Debug,
+                        PartialEq,
+                        PartialOrd,
+                        Eq,
+                        Ord,
+                        Hash,
+                        ::serde::Serialize,
+                        ::serde::Deserialize,
+                    )]
                     pub struct Time {
                         pub unit: self::TimeUnit,
                         pub bit_width: i32,
+                    }
+
+                    #[allow(clippy::derivable_impls)]
+                    impl ::core::default::Default for Time {
+                        fn default() -> Self {
+                            Self {
+                                unit: self::TimeUnit::Millisecond,
+                                bit_width: 32,
+                            }
+                        }
                     }
 
                     impl Time {
                         #[allow(clippy::too_many_arguments)]
                         pub fn create(
                             builder: &mut ::planus::Builder,
-                            unit: impl ::planus::WriteAsDefault<self::TimeUnit, self::TimeUnit>,
-                            bit_width: impl ::planus::WriteAsDefault<i32, i32>,
+                            field_unit: impl ::planus::WriteAsDefault<self::TimeUnit, self::TimeUnit>,
+                            field_bit_width: impl ::planus::WriteAsDefault<i32, i32>,
                         ) -> ::planus::Offset<Self> {
-                            let prepared_unit = unit.prepare(builder, &self::TimeUnit::Millisecond);
+                            let prepared_unit =
+                                field_unit.prepare(builder, &self::TimeUnit::Millisecond);
 
-                            let prepared_bit_width = bit_width.prepare(builder, &32);
+                            let prepared_bit_width = field_bit_width.prepare(builder, &32);
 
                             let mut table_writer =
                                 ::planus::table_writer::TableWriter::<6, 6>::new(builder);
@@ -4247,24 +4850,45 @@ mod root {
                         }
                     }
 
-                    #[derive(Clone, Debug, PartialEq, ::serde::Serialize, ::serde::Deserialize)]
+                    #[derive(
+                        Clone,
+                        Debug,
+                        PartialEq,
+                        PartialOrd,
+                        Eq,
+                        Ord,
+                        Hash,
+                        ::serde::Serialize,
+                        ::serde::Deserialize,
+                    )]
                     pub struct Timestamp {
                         pub unit: self::TimeUnit,
                         pub timezone: ::core::option::Option<::planus::alloc::string::String>,
+                    }
+
+                    #[allow(clippy::derivable_impls)]
+                    impl ::core::default::Default for Timestamp {
+                        fn default() -> Self {
+                            Self {
+                                unit: self::TimeUnit::Second,
+                                timezone: ::core::default::Default::default(),
+                            }
+                        }
                     }
 
                     impl Timestamp {
                         #[allow(clippy::too_many_arguments)]
                         pub fn create(
                             builder: &mut ::planus::Builder,
-                            unit: impl ::planus::WriteAsDefault<self::TimeUnit, self::TimeUnit>,
-                            timezone: impl ::planus::WriteAsOptional<
+                            field_unit: impl ::planus::WriteAsDefault<self::TimeUnit, self::TimeUnit>,
+                            field_timezone: impl ::planus::WriteAsOptional<
                                 ::planus::Offset<::core::primitive::str>,
                             >,
                         ) -> ::planus::Offset<Self> {
-                            let prepared_unit = unit.prepare(builder, &self::TimeUnit::Second);
+                            let prepared_unit =
+                                field_unit.prepare(builder, &self::TimeUnit::Second);
 
-                            let prepared_timezone = timezone.prepare(builder);
+                            let prepared_timezone = field_timezone.prepare(builder);
 
                             let mut table_writer =
                                 ::planus::table_writer::TableWriter::<6, 6>::new(builder);
@@ -4351,10 +4975,10 @@ mod root {
                         fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
                             let mut f = f.debug_struct("TimestampRef");
                             f.field("unit", &self.unit());
-                            if let ::core::option::Option::Some(timezone) =
+                            if let ::core::option::Option::Some(field_timezone) =
                                 self.timezone().transpose()
                             {
-                                f.field("timezone", &timezone);
+                                f.field("timezone", &field_timezone);
                             }
                             f.finish()
                         }
@@ -4450,7 +5074,16 @@ mod root {
                     }
 
                     #[derive(
-                        Copy, Clone, Debug, PartialEq, Eq, ::serde::Serialize, ::serde::Deserialize,
+                        Copy,
+                        Clone,
+                        Debug,
+                        PartialEq,
+                        Eq,
+                        PartialOrd,
+                        Ord,
+                        Hash,
+                        ::serde::Serialize,
+                        ::serde::Deserialize,
                     )]
                     #[repr(i16)]
                     pub enum IntervalUnit {
@@ -4571,12 +5204,12 @@ mod root {
                         }
                     }
 
-                    impl<'buf> ::planus::VectorWrite<IntervalUnit> for IntervalUnit {
+                    impl ::planus::VectorWrite<IntervalUnit> for IntervalUnit {
                         const STRIDE: usize = 2;
 
                         type Value = Self;
 
-                        fn prepare(&self, _builder: &mut ::planus::Builder) -> Self::Value {
+                        fn prepare(&self, _builder: &mut ::planus::Builder) -> Self {
                             *self
                         }
 
@@ -4597,19 +5230,41 @@ mod root {
                         }
                     }
 
-                    #[derive(Clone, Debug, PartialEq, ::serde::Serialize, ::serde::Deserialize)]
+                    #[derive(
+                        Clone,
+                        Debug,
+                        PartialEq,
+                        PartialOrd,
+                        Eq,
+                        Ord,
+                        Hash,
+                        ::serde::Serialize,
+                        ::serde::Deserialize,
+                    )]
                     pub struct Interval {
                         pub unit: self::IntervalUnit,
+                    }
+
+                    #[allow(clippy::derivable_impls)]
+                    impl ::core::default::Default for Interval {
+                        fn default() -> Self {
+                            Self {
+                                unit: self::IntervalUnit::YearMonth,
+                            }
+                        }
                     }
 
                     impl Interval {
                         #[allow(clippy::too_many_arguments)]
                         pub fn create(
                             builder: &mut ::planus::Builder,
-                            unit: impl ::planus::WriteAsDefault<self::IntervalUnit, self::IntervalUnit>,
+                            field_unit: impl ::planus::WriteAsDefault<
+                                self::IntervalUnit,
+                                self::IntervalUnit,
+                            >,
                         ) -> ::planus::Offset<Self> {
                             let prepared_unit =
-                                unit.prepare(builder, &self::IntervalUnit::YearMonth);
+                                field_unit.prepare(builder, &self::IntervalUnit::YearMonth);
 
                             let mut table_writer =
                                 ::planus::table_writer::TableWriter::<4, 2>::new(builder);
@@ -4765,18 +5420,38 @@ mod root {
                         }
                     }
 
-                    #[derive(Clone, Debug, PartialEq, ::serde::Serialize, ::serde::Deserialize)]
+                    #[derive(
+                        Clone,
+                        Debug,
+                        PartialEq,
+                        PartialOrd,
+                        Eq,
+                        Ord,
+                        Hash,
+                        ::serde::Serialize,
+                        ::serde::Deserialize,
+                    )]
                     pub struct Duration {
                         pub unit: self::TimeUnit,
+                    }
+
+                    #[allow(clippy::derivable_impls)]
+                    impl ::core::default::Default for Duration {
+                        fn default() -> Self {
+                            Self {
+                                unit: self::TimeUnit::Millisecond,
+                            }
+                        }
                     }
 
                     impl Duration {
                         #[allow(clippy::too_many_arguments)]
                         pub fn create(
                             builder: &mut ::planus::Builder,
-                            unit: impl ::planus::WriteAsDefault<self::TimeUnit, self::TimeUnit>,
+                            field_unit: impl ::planus::WriteAsDefault<self::TimeUnit, self::TimeUnit>,
                         ) -> ::planus::Offset<Self> {
-                            let prepared_unit = unit.prepare(builder, &self::TimeUnit::Millisecond);
+                            let prepared_unit =
+                                field_unit.prepare(builder, &self::TimeUnit::Millisecond);
 
                             let mut table_writer =
                                 ::planus::table_writer::TableWriter::<4, 2>::new(builder);
@@ -4932,7 +5607,17 @@ mod root {
                         }
                     }
 
-                    #[derive(Clone, Debug, PartialEq, ::serde::Serialize, ::serde::Deserialize)]
+                    #[derive(
+                        Clone,
+                        Debug,
+                        PartialEq,
+                        PartialOrd,
+                        Eq,
+                        Ord,
+                        Hash,
+                        ::serde::Serialize,
+                        ::serde::Deserialize,
+                    )]
                     pub enum Type {
                         Null(::planus::alloc::boxed::Box<self::Null>),
                         Int(::planus::alloc::boxed::Box<self::Int>),
@@ -4955,6 +5640,7 @@ mod root {
                         LargeBinary(::planus::alloc::boxed::Box<self::LargeBinary>),
                         LargeUtf8(::planus::alloc::boxed::Box<self::LargeUtf8>),
                         LargeList(::planus::alloc::boxed::Box<self::LargeList>),
+                        RunEndEncoded(::planus::alloc::boxed::Box<self::RunEndEncoded>),
                     }
 
                     impl Type {
@@ -5104,6 +5790,13 @@ mod root {
                         ) -> ::planus::UnionOffset<Self> {
                             ::planus::UnionOffset::new(21, value.prepare(builder).downcast())
                         }
+
+                        pub fn create_run_end_encoded(
+                            builder: &mut ::planus::Builder,
+                            value: impl ::planus::WriteAsOffset<self::RunEndEncoded>,
+                        ) -> ::planus::UnionOffset<Self> {
+                            ::planus::UnionOffset::new(22, value.prepare(builder).downcast())
+                        }
                     }
 
                     impl ::planus::WriteAsUnion<Type> for Type {
@@ -5141,6 +5834,9 @@ mod root {
                                 }
                                 Self::LargeUtf8(value) => Self::create_large_utf8(builder, value),
                                 Self::LargeList(value) => Self::create_large_list(builder, value),
+                                Self::RunEndEncoded(value) => {
+                                    Self::create_run_end_encoded(builder, value)
+                                }
                             }
                         }
                     }
@@ -5180,6 +5876,7 @@ mod root {
                         LargeBinary(self::LargeBinaryRef<'a>),
                         LargeUtf8(self::LargeUtf8Ref<'a>),
                         LargeList(self::LargeListRef<'a>),
+                        RunEndEncoded(self::RunEndEncodedRef<'a>),
                     }
 
                     impl<'a> ::core::convert::TryFrom<TypeRef<'a>> for Type {
@@ -5308,6 +6005,12 @@ mod root {
                                         ::core::convert::TryFrom::try_from(value)?,
                                     ))
                                 }
+
+                                TypeRef::RunEndEncoded(value) => {
+                                    Type::RunEndEncoded(::planus::alloc::boxed::Box::new(
+                                        ::core::convert::TryFrom::try_from(value)?,
+                                    ))
+                                }
                             })
                         }
                     }
@@ -5383,6 +6086,9 @@ mod root {
                                 21 => ::core::result::Result::Ok(Self::LargeList(
                                     ::planus::TableRead::from_buffer(buffer, field_offset)?,
                                 )),
+                                22 => ::core::result::Result::Ok(Self::RunEndEncoded(
+                                    ::planus::TableRead::from_buffer(buffer, field_offset)?,
+                                )),
                                 _ => ::core::result::Result::Err(
                                     ::planus::errors::ErrorKind::UnknownUnionTag { tag },
                                 ),
@@ -5390,26 +6096,46 @@ mod root {
                         }
                     }
 
-                    #[derive(Clone, Debug, PartialEq, ::serde::Serialize, ::serde::Deserialize)]
+                    #[derive(
+                        Clone,
+                        Debug,
+                        PartialEq,
+                        PartialOrd,
+                        Eq,
+                        Ord,
+                        Hash,
+                        ::serde::Serialize,
+                        ::serde::Deserialize,
+                    )]
                     pub struct KeyValue {
                         pub key: ::core::option::Option<::planus::alloc::string::String>,
                         pub value: ::core::option::Option<::planus::alloc::string::String>,
+                    }
+
+                    #[allow(clippy::derivable_impls)]
+                    impl ::core::default::Default for KeyValue {
+                        fn default() -> Self {
+                            Self {
+                                key: ::core::default::Default::default(),
+                                value: ::core::default::Default::default(),
+                            }
+                        }
                     }
 
                     impl KeyValue {
                         #[allow(clippy::too_many_arguments)]
                         pub fn create(
                             builder: &mut ::planus::Builder,
-                            key: impl ::planus::WriteAsOptional<
+                            field_key: impl ::planus::WriteAsOptional<
                                 ::planus::Offset<::core::primitive::str>,
                             >,
-                            value: impl ::planus::WriteAsOptional<
+                            field_value: impl ::planus::WriteAsOptional<
                                 ::planus::Offset<::core::primitive::str>,
                             >,
                         ) -> ::planus::Offset<Self> {
-                            let prepared_key = key.prepare(builder);
+                            let prepared_key = field_key.prepare(builder);
 
-                            let prepared_value = value.prepare(builder);
+                            let prepared_value = field_value.prepare(builder);
 
                             let mut table_writer =
                                 ::planus::table_writer::TableWriter::<6, 8>::new(builder);
@@ -5493,11 +6219,14 @@ mod root {
                     impl<'a> ::core::fmt::Debug for KeyValueRef<'a> {
                         fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
                             let mut f = f.debug_struct("KeyValueRef");
-                            if let ::core::option::Option::Some(key) = self.key().transpose() {
-                                f.field("key", &key);
+                            if let ::core::option::Option::Some(field_key) = self.key().transpose()
+                            {
+                                f.field("key", &field_key);
                             }
-                            if let ::core::option::Option::Some(value) = self.value().transpose() {
-                                f.field("value", &value);
+                            if let ::core::option::Option::Some(field_value) =
+                                self.value().transpose()
+                            {
+                                f.field("value", &field_value);
                             }
                             f.finish()
                         }
@@ -5597,7 +6326,16 @@ mod root {
                     }
 
                     #[derive(
-                        Copy, Clone, Debug, PartialEq, Eq, ::serde::Serialize, ::serde::Deserialize,
+                        Copy,
+                        Clone,
+                        Debug,
+                        PartialEq,
+                        Eq,
+                        PartialOrd,
+                        Ord,
+                        Hash,
+                        ::serde::Serialize,
+                        ::serde::Deserialize,
                     )]
                     #[repr(i16)]
                     pub enum DictionaryKind {
@@ -5714,12 +6452,12 @@ mod root {
                         }
                     }
 
-                    impl<'buf> ::planus::VectorWrite<DictionaryKind> for DictionaryKind {
+                    impl ::planus::VectorWrite<DictionaryKind> for DictionaryKind {
                         const STRIDE: usize = 2;
 
                         type Value = Self;
 
-                        fn prepare(&self, _builder: &mut ::planus::Builder) -> Self::Value {
+                        fn prepare(&self, _builder: &mut ::planus::Builder) -> Self {
                             *self
                         }
 
@@ -5740,7 +6478,17 @@ mod root {
                         }
                     }
 
-                    #[derive(Clone, Debug, PartialEq, ::serde::Serialize, ::serde::Deserialize)]
+                    #[derive(
+                        Clone,
+                        Debug,
+                        PartialEq,
+                        PartialOrd,
+                        Eq,
+                        Ord,
+                        Hash,
+                        ::serde::Serialize,
+                        ::serde::Deserialize,
+                    )]
                     pub struct DictionaryEncoding {
                         pub id: i64,
                         pub index_type:
@@ -5749,26 +6497,40 @@ mod root {
                         pub dictionary_kind: self::DictionaryKind,
                     }
 
+                    #[allow(clippy::derivable_impls)]
+                    impl ::core::default::Default for DictionaryEncoding {
+                        fn default() -> Self {
+                            Self {
+                                id: 0,
+                                index_type: ::core::default::Default::default(),
+                                is_ordered: false,
+                                dictionary_kind: self::DictionaryKind::DenseArray,
+                            }
+                        }
+                    }
+
                     impl DictionaryEncoding {
                         #[allow(clippy::too_many_arguments)]
                         pub fn create(
                             builder: &mut ::planus::Builder,
-                            id: impl ::planus::WriteAsDefault<i64, i64>,
-                            index_type: impl ::planus::WriteAsOptional<::planus::Offset<self::Int>>,
-                            is_ordered: impl ::planus::WriteAsDefault<bool, bool>,
-                            dictionary_kind: impl ::planus::WriteAsDefault<
+                            field_id: impl ::planus::WriteAsDefault<i64, i64>,
+                            field_index_type: impl ::planus::WriteAsOptional<
+                                ::planus::Offset<self::Int>,
+                            >,
+                            field_is_ordered: impl ::planus::WriteAsDefault<bool, bool>,
+                            field_dictionary_kind: impl ::planus::WriteAsDefault<
                                 self::DictionaryKind,
                                 self::DictionaryKind,
                             >,
                         ) -> ::planus::Offset<Self> {
-                            let prepared_id = id.prepare(builder, &0);
+                            let prepared_id = field_id.prepare(builder, &0);
 
-                            let prepared_index_type = index_type.prepare(builder);
+                            let prepared_index_type = field_index_type.prepare(builder);
 
-                            let prepared_is_ordered = is_ordered.prepare(builder, &false);
+                            let prepared_is_ordered = field_is_ordered.prepare(builder, &false);
 
-                            let prepared_dictionary_kind =
-                                dictionary_kind.prepare(builder, &self::DictionaryKind::DenseArray);
+                            let prepared_dictionary_kind = field_dictionary_kind
+                                .prepare(builder, &self::DictionaryKind::DenseArray);
 
                             let mut table_writer =
                                 ::planus::table_writer::TableWriter::<10, 15>::new(builder);
@@ -5891,10 +6653,10 @@ mod root {
                         fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
                             let mut f = f.debug_struct("DictionaryEncodingRef");
                             f.field("id", &self.id());
-                            if let ::core::option::Option::Some(index_type) =
+                            if let ::core::option::Option::Some(field_index_type) =
                                 self.index_type().transpose()
                             {
-                                f.field("index_type", &index_type);
+                                f.field("index_type", &field_index_type);
                             }
                             f.field("is_ordered", &self.is_ordered());
                             f.field("dictionary_kind", &self.dictionary_kind());
@@ -6001,7 +6763,17 @@ mod root {
                         }
                     }
 
-                    #[derive(Clone, Debug, PartialEq, ::serde::Serialize, ::serde::Deserialize)]
+                    #[derive(
+                        Clone,
+                        Debug,
+                        PartialEq,
+                        PartialOrd,
+                        Eq,
+                        Ord,
+                        Hash,
+                        ::serde::Serialize,
+                        ::serde::Deserialize,
+                    )]
                     pub struct Field {
                         pub name: ::core::option::Option<::planus::alloc::string::String>,
                         pub nullable: bool,
@@ -6015,36 +6787,50 @@ mod root {
                             ::core::option::Option<::planus::alloc::vec::Vec<self::KeyValue>>,
                     }
 
+                    #[allow(clippy::derivable_impls)]
+                    impl ::core::default::Default for Field {
+                        fn default() -> Self {
+                            Self {
+                                name: ::core::default::Default::default(),
+                                nullable: false,
+                                type_: ::core::default::Default::default(),
+                                dictionary: ::core::default::Default::default(),
+                                children: ::core::default::Default::default(),
+                                custom_metadata: ::core::default::Default::default(),
+                            }
+                        }
+                    }
+
                     impl Field {
                         #[allow(clippy::too_many_arguments)]
                         pub fn create(
                             builder: &mut ::planus::Builder,
-                            name: impl ::planus::WriteAsOptional<
+                            field_name: impl ::planus::WriteAsOptional<
                                 ::planus::Offset<::core::primitive::str>,
                             >,
-                            nullable: impl ::planus::WriteAsDefault<bool, bool>,
-                            type_: impl ::planus::WriteAsOptionalUnion<self::Type>,
-                            dictionary: impl ::planus::WriteAsOptional<
+                            field_nullable: impl ::planus::WriteAsDefault<bool, bool>,
+                            field_type_: impl ::planus::WriteAsOptionalUnion<self::Type>,
+                            field_dictionary: impl ::planus::WriteAsOptional<
                                 ::planus::Offset<self::DictionaryEncoding>,
                             >,
-                            children: impl ::planus::WriteAsOptional<
+                            field_children: impl ::planus::WriteAsOptional<
                                 ::planus::Offset<[::planus::Offset<self::Field>]>,
                             >,
-                            custom_metadata: impl ::planus::WriteAsOptional<
+                            field_custom_metadata: impl ::planus::WriteAsOptional<
                                 ::planus::Offset<[::planus::Offset<self::KeyValue>]>,
                             >,
                         ) -> ::planus::Offset<Self> {
-                            let prepared_name = name.prepare(builder);
+                            let prepared_name = field_name.prepare(builder);
 
-                            let prepared_nullable = nullable.prepare(builder, &false);
+                            let prepared_nullable = field_nullable.prepare(builder, &false);
 
-                            let prepared_type_ = type_.prepare(builder);
+                            let prepared_type_ = field_type_.prepare(builder);
 
-                            let prepared_dictionary = dictionary.prepare(builder);
+                            let prepared_dictionary = field_dictionary.prepare(builder);
 
-                            let prepared_children = children.prepare(builder);
+                            let prepared_children = field_children.prepare(builder);
 
-                            let prepared_custom_metadata = custom_metadata.prepare(builder);
+                            let prepared_custom_metadata = field_custom_metadata.prepare(builder);
 
                             let mut table_writer =
                                 ::planus::table_writer::TableWriter::<16, 22>::new(builder);
@@ -6209,27 +6995,31 @@ mod root {
                     impl<'a> ::core::fmt::Debug for FieldRef<'a> {
                         fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
                             let mut f = f.debug_struct("FieldRef");
-                            if let ::core::option::Option::Some(name) = self.name().transpose() {
-                                f.field("name", &name);
+                            if let ::core::option::Option::Some(field_name) =
+                                self.name().transpose()
+                            {
+                                f.field("name", &field_name);
                             }
                             f.field("nullable", &self.nullable());
-                            if let ::core::option::Option::Some(type_) = self.type_().transpose() {
-                                f.field("type_", &type_);
+                            if let ::core::option::Option::Some(field_type_) =
+                                self.type_().transpose()
+                            {
+                                f.field("type_", &field_type_);
                             }
-                            if let ::core::option::Option::Some(dictionary) =
+                            if let ::core::option::Option::Some(field_dictionary) =
                                 self.dictionary().transpose()
                             {
-                                f.field("dictionary", &dictionary);
+                                f.field("dictionary", &field_dictionary);
                             }
-                            if let ::core::option::Option::Some(children) =
+                            if let ::core::option::Option::Some(field_children) =
                                 self.children().transpose()
                             {
-                                f.field("children", &children);
+                                f.field("children", &field_children);
                             }
-                            if let ::core::option::Option::Some(custom_metadata) =
+                            if let ::core::option::Option::Some(field_custom_metadata) =
                                 self.custom_metadata().transpose()
                             {
-                                f.field("custom_metadata", &custom_metadata);
+                                f.field("custom_metadata", &field_custom_metadata);
                             }
                             f.finish()
                         }
@@ -6354,7 +7144,16 @@ mod root {
                     }
 
                     #[derive(
-                        Copy, Clone, Debug, PartialEq, Eq, ::serde::Serialize, ::serde::Deserialize,
+                        Copy,
+                        Clone,
+                        Debug,
+                        PartialEq,
+                        Eq,
+                        PartialOrd,
+                        Ord,
+                        Hash,
+                        ::serde::Serialize,
+                        ::serde::Deserialize,
                     )]
                     #[repr(i16)]
                     pub enum Endianness {
@@ -6473,12 +7272,12 @@ mod root {
                         }
                     }
 
-                    impl<'buf> ::planus::VectorWrite<Endianness> for Endianness {
+                    impl ::planus::VectorWrite<Endianness> for Endianness {
                         const STRIDE: usize = 2;
 
                         type Value = Self;
 
-                        fn prepare(&self, _builder: &mut ::planus::Builder) -> Self::Value {
+                        fn prepare(&self, _builder: &mut ::planus::Builder) -> Self {
                             *self
                         }
 
@@ -6500,7 +7299,17 @@ mod root {
                     }
 
                     #[derive(
-                        Copy, Clone, Debug, PartialEq, ::serde::Serialize, ::serde::Deserialize,
+                        Copy,
+                        Clone,
+                        Debug,
+                        PartialEq,
+                        PartialOrd,
+                        Eq,
+                        Ord,
+                        Hash,
+                        Default,
+                        ::serde::Serialize,
+                        ::serde::Deserialize,
                     )]
                     pub struct Buffer {
                         pub offset: i64,
@@ -6524,6 +7333,29 @@ mod root {
                             let (cur, cursor) = cursor.split::<8, 0>();
                             self.length.write(cur, buffer_position - 8);
                             cursor.finish([]);
+                        }
+                    }
+
+                    impl ::planus::WriteAsOffset<Buffer> for Buffer {
+                        fn prepare(
+                            &self,
+                            builder: &mut ::planus::Builder,
+                        ) -> ::planus::Offset<Buffer> {
+                            unsafe {
+                                builder.write_with(16, 8, |buffer_position, bytes| {
+                                    let bytes = bytes.as_mut_ptr();
+
+                                    ::planus::WriteAsPrimitive::write(
+                                        self,
+                                        ::planus::Cursor::new(
+                                            &mut *(bytes
+                                                as *mut [::core::mem::MaybeUninit<u8>; 16]),
+                                        ),
+                                        buffer_position,
+                                    );
+                                });
+                            }
+                            builder.current_offset()
                         }
                     }
 
@@ -6630,7 +7462,17 @@ mod root {
                         }
                     }
 
-                    #[derive(Clone, Debug, PartialEq, ::serde::Serialize, ::serde::Deserialize)]
+                    #[derive(
+                        Clone,
+                        Debug,
+                        PartialEq,
+                        PartialOrd,
+                        Eq,
+                        Ord,
+                        Hash,
+                        ::serde::Serialize,
+                        ::serde::Deserialize,
+                    )]
                     pub struct Schema {
                         pub endianness: self::Endianness,
                         pub fields: ::core::option::Option<::planus::alloc::vec::Vec<self::Field>>,
@@ -6640,30 +7482,44 @@ mod root {
                             ::core::option::Option<::planus::alloc::vec::Vec<self::Feature>>,
                     }
 
+                    #[allow(clippy::derivable_impls)]
+                    impl ::core::default::Default for Schema {
+                        fn default() -> Self {
+                            Self {
+                                endianness: self::Endianness::Little,
+                                fields: ::core::default::Default::default(),
+                                custom_metadata: ::core::default::Default::default(),
+                                features: ::core::default::Default::default(),
+                            }
+                        }
+                    }
+
                     impl Schema {
                         #[allow(clippy::too_many_arguments)]
                         pub fn create(
                             builder: &mut ::planus::Builder,
-                            endianness: impl ::planus::WriteAsDefault<
+                            field_endianness: impl ::planus::WriteAsDefault<
                                 self::Endianness,
                                 self::Endianness,
                             >,
-                            fields: impl ::planus::WriteAsOptional<
+                            field_fields: impl ::planus::WriteAsOptional<
                                 ::planus::Offset<[::planus::Offset<self::Field>]>,
                             >,
-                            custom_metadata: impl ::planus::WriteAsOptional<
+                            field_custom_metadata: impl ::planus::WriteAsOptional<
                                 ::planus::Offset<[::planus::Offset<self::KeyValue>]>,
                             >,
-                            features: impl ::planus::WriteAsOptional<::planus::Offset<[self::Feature]>>,
+                            field_features: impl ::planus::WriteAsOptional<
+                                ::planus::Offset<[self::Feature]>,
+                            >,
                         ) -> ::planus::Offset<Self> {
                             let prepared_endianness =
-                                endianness.prepare(builder, &self::Endianness::Little);
+                                field_endianness.prepare(builder, &self::Endianness::Little);
 
-                            let prepared_fields = fields.prepare(builder);
+                            let prepared_fields = field_fields.prepare(builder);
 
-                            let prepared_custom_metadata = custom_metadata.prepare(builder);
+                            let prepared_custom_metadata = field_custom_metadata.prepare(builder);
 
-                            let prepared_features = features.prepare(builder);
+                            let prepared_features = field_features.prepare(builder);
 
                             let mut table_writer =
                                 ::planus::table_writer::TableWriter::<10, 14>::new(builder);
@@ -6803,19 +7659,20 @@ mod root {
                         fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
                             let mut f = f.debug_struct("SchemaRef");
                             f.field("endianness", &self.endianness());
-                            if let ::core::option::Option::Some(fields) = self.fields().transpose()
+                            if let ::core::option::Option::Some(field_fields) =
+                                self.fields().transpose()
                             {
-                                f.field("fields", &fields);
+                                f.field("fields", &field_fields);
                             }
-                            if let ::core::option::Option::Some(custom_metadata) =
+                            if let ::core::option::Option::Some(field_custom_metadata) =
                                 self.custom_metadata().transpose()
                             {
-                                f.field("custom_metadata", &custom_metadata);
+                                f.field("custom_metadata", &field_custom_metadata);
                             }
-                            if let ::core::option::Option::Some(features) =
+                            if let ::core::option::Option::Some(field_features) =
                                 self.features().transpose()
                             {
-                                f.field("features", &features);
+                                f.field("features", &field_features);
                             }
                             f.finish()
                         }
@@ -6926,7 +7783,17 @@ mod root {
                     }
 
                     #[derive(
-                        Copy, Clone, Debug, PartialEq, ::serde::Serialize, ::serde::Deserialize,
+                        Copy,
+                        Clone,
+                        Debug,
+                        PartialEq,
+                        PartialOrd,
+                        Eq,
+                        Ord,
+                        Hash,
+                        Default,
+                        ::serde::Serialize,
+                        ::serde::Deserialize,
                     )]
                     pub struct FieldNode {
                         pub length: i64,
@@ -6950,6 +7817,29 @@ mod root {
                             let (cur, cursor) = cursor.split::<8, 0>();
                             self.null_count.write(cur, buffer_position - 8);
                             cursor.finish([]);
+                        }
+                    }
+
+                    impl ::planus::WriteAsOffset<FieldNode> for FieldNode {
+                        fn prepare(
+                            &self,
+                            builder: &mut ::planus::Builder,
+                        ) -> ::planus::Offset<FieldNode> {
+                            unsafe {
+                                builder.write_with(16, 8, |buffer_position, bytes| {
+                                    let bytes = bytes.as_mut_ptr();
+
+                                    ::planus::WriteAsPrimitive::write(
+                                        self,
+                                        ::planus::Cursor::new(
+                                            &mut *(bytes
+                                                as *mut [::core::mem::MaybeUninit<u8>; 16]),
+                                        ),
+                                        buffer_position,
+                                    );
+                                });
+                            }
+                            builder.current_offset()
                         }
                     }
 
@@ -7057,7 +7947,16 @@ mod root {
                     }
 
                     #[derive(
-                        Copy, Clone, Debug, PartialEq, Eq, ::serde::Serialize, ::serde::Deserialize,
+                        Copy,
+                        Clone,
+                        Debug,
+                        PartialEq,
+                        Eq,
+                        PartialOrd,
+                        Ord,
+                        Hash,
+                        ::serde::Serialize,
+                        ::serde::Deserialize,
                     )]
                     #[repr(i8)]
                     pub enum CompressionType {
@@ -7176,12 +8075,12 @@ mod root {
                         }
                     }
 
-                    impl<'buf> ::planus::VectorWrite<CompressionType> for CompressionType {
+                    impl ::planus::VectorWrite<CompressionType> for CompressionType {
                         const STRIDE: usize = 1;
 
                         type Value = Self;
 
-                        fn prepare(&self, _builder: &mut ::planus::Builder) -> Self::Value {
+                        fn prepare(&self, _builder: &mut ::planus::Builder) -> Self {
                             *self
                         }
 
@@ -7203,7 +8102,16 @@ mod root {
                     }
 
                     #[derive(
-                        Copy, Clone, Debug, PartialEq, Eq, ::serde::Serialize, ::serde::Deserialize,
+                        Copy,
+                        Clone,
+                        Debug,
+                        PartialEq,
+                        Eq,
+                        PartialOrd,
+                        Ord,
+                        Hash,
+                        ::serde::Serialize,
+                        ::serde::Deserialize,
                     )]
                     #[repr(i8)]
                     pub enum BodyCompressionMethod {
@@ -7325,12 +8233,12 @@ mod root {
                         }
                     }
 
-                    impl<'buf> ::planus::VectorWrite<BodyCompressionMethod> for BodyCompressionMethod {
+                    impl ::planus::VectorWrite<BodyCompressionMethod> for BodyCompressionMethod {
                         const STRIDE: usize = 1;
 
                         type Value = Self;
 
-                        fn prepare(&self, _builder: &mut ::planus::Builder) -> Self::Value {
+                        fn prepare(&self, _builder: &mut ::planus::Builder) -> Self {
                             *self
                         }
 
@@ -7351,30 +8259,50 @@ mod root {
                         }
                     }
 
-                    #[derive(Clone, Debug, PartialEq, ::serde::Serialize, ::serde::Deserialize)]
+                    #[derive(
+                        Clone,
+                        Debug,
+                        PartialEq,
+                        PartialOrd,
+                        Eq,
+                        Ord,
+                        Hash,
+                        ::serde::Serialize,
+                        ::serde::Deserialize,
+                    )]
                     pub struct BodyCompression {
                         pub codec: self::CompressionType,
                         pub method: self::BodyCompressionMethod,
+                    }
+
+                    #[allow(clippy::derivable_impls)]
+                    impl ::core::default::Default for BodyCompression {
+                        fn default() -> Self {
+                            Self {
+                                codec: self::CompressionType::Lz4Frame,
+                                method: self::BodyCompressionMethod::Buffer,
+                            }
+                        }
                     }
 
                     impl BodyCompression {
                         #[allow(clippy::too_many_arguments)]
                         pub fn create(
                             builder: &mut ::planus::Builder,
-                            codec: impl ::planus::WriteAsDefault<
+                            field_codec: impl ::planus::WriteAsDefault<
                                 self::CompressionType,
                                 self::CompressionType,
                             >,
-                            method: impl ::planus::WriteAsDefault<
+                            field_method: impl ::planus::WriteAsDefault<
                                 self::BodyCompressionMethod,
                                 self::BodyCompressionMethod,
                             >,
                         ) -> ::planus::Offset<Self> {
                             let prepared_codec =
-                                codec.prepare(builder, &self::CompressionType::Lz4Frame);
+                                field_codec.prepare(builder, &self::CompressionType::Lz4Frame);
 
                             let prepared_method =
-                                method.prepare(builder, &self::BodyCompressionMethod::Buffer);
+                                field_method.prepare(builder, &self::BodyCompressionMethod::Buffer);
 
                             let mut table_writer =
                                 ::planus::table_writer::TableWriter::<6, 2>::new(builder);
@@ -7553,7 +8481,17 @@ mod root {
                         }
                     }
 
-                    #[derive(Clone, Debug, PartialEq, ::serde::Serialize, ::serde::Deserialize)]
+                    #[derive(
+                        Clone,
+                        Debug,
+                        PartialEq,
+                        PartialOrd,
+                        Eq,
+                        Ord,
+                        Hash,
+                        ::serde::Serialize,
+                        ::serde::Deserialize,
+                    )]
                     pub struct RecordBatch {
                         pub length: i64,
                         pub nodes:
@@ -7565,24 +8503,40 @@ mod root {
                         >,
                     }
 
+                    #[allow(clippy::derivable_impls)]
+                    impl ::core::default::Default for RecordBatch {
+                        fn default() -> Self {
+                            Self {
+                                length: 0,
+                                nodes: ::core::default::Default::default(),
+                                buffers: ::core::default::Default::default(),
+                                compression: ::core::default::Default::default(),
+                            }
+                        }
+                    }
+
                     impl RecordBatch {
                         #[allow(clippy::too_many_arguments)]
                         pub fn create(
                             builder: &mut ::planus::Builder,
-                            length: impl ::planus::WriteAsDefault<i64, i64>,
-                            nodes: impl ::planus::WriteAsOptional<::planus::Offset<[self::FieldNode]>>,
-                            buffers: impl ::planus::WriteAsOptional<::planus::Offset<[self::Buffer]>>,
-                            compression: impl ::planus::WriteAsOptional<
+                            field_length: impl ::planus::WriteAsDefault<i64, i64>,
+                            field_nodes: impl ::planus::WriteAsOptional<
+                                ::planus::Offset<[self::FieldNode]>,
+                            >,
+                            field_buffers: impl ::planus::WriteAsOptional<
+                                ::planus::Offset<[self::Buffer]>,
+                            >,
+                            field_compression: impl ::planus::WriteAsOptional<
                                 ::planus::Offset<self::BodyCompression>,
                             >,
                         ) -> ::planus::Offset<Self> {
-                            let prepared_length = length.prepare(builder, &0);
+                            let prepared_length = field_length.prepare(builder, &0);
 
-                            let prepared_nodes = nodes.prepare(builder);
+                            let prepared_nodes = field_nodes.prepare(builder);
 
-                            let prepared_buffers = buffers.prepare(builder);
+                            let prepared_buffers = field_buffers.prepare(builder);
 
-                            let prepared_compression = compression.prepare(builder);
+                            let prepared_compression = field_compression.prepare(builder);
 
                             let mut table_writer =
                                 ::planus::table_writer::TableWriter::<10, 20>::new(builder);
@@ -7708,18 +8662,20 @@ mod root {
                         fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
                             let mut f = f.debug_struct("RecordBatchRef");
                             f.field("length", &self.length());
-                            if let ::core::option::Option::Some(nodes) = self.nodes().transpose() {
-                                f.field("nodes", &nodes);
+                            if let ::core::option::Option::Some(field_nodes) =
+                                self.nodes().transpose()
+                            {
+                                f.field("nodes", &field_nodes);
                             }
-                            if let ::core::option::Option::Some(buffers) =
+                            if let ::core::option::Option::Some(field_buffers) =
                                 self.buffers().transpose()
                             {
-                                f.field("buffers", &buffers);
+                                f.field("buffers", &field_buffers);
                             }
-                            if let ::core::option::Option::Some(compression) =
+                            if let ::core::option::Option::Some(field_compression) =
                                 self.compression().transpose()
                             {
-                                f.field("compression", &compression);
+                                f.field("compression", &field_compression);
                             }
                             f.finish()
                         }
@@ -7830,7 +8786,17 @@ mod root {
                         }
                     }
 
-                    #[derive(Clone, Debug, PartialEq, ::serde::Serialize, ::serde::Deserialize)]
+                    #[derive(
+                        Clone,
+                        Debug,
+                        PartialEq,
+                        PartialOrd,
+                        Eq,
+                        Ord,
+                        Hash,
+                        ::serde::Serialize,
+                        ::serde::Deserialize,
+                    )]
                     pub struct DictionaryBatch {
                         pub id: i64,
                         pub data:
@@ -7838,19 +8804,32 @@ mod root {
                         pub is_delta: bool,
                     }
 
+                    #[allow(clippy::derivable_impls)]
+                    impl ::core::default::Default for DictionaryBatch {
+                        fn default() -> Self {
+                            Self {
+                                id: 0,
+                                data: ::core::default::Default::default(),
+                                is_delta: false,
+                            }
+                        }
+                    }
+
                     impl DictionaryBatch {
                         #[allow(clippy::too_many_arguments)]
                         pub fn create(
                             builder: &mut ::planus::Builder,
-                            id: impl ::planus::WriteAsDefault<i64, i64>,
-                            data: impl ::planus::WriteAsOptional<::planus::Offset<self::RecordBatch>>,
-                            is_delta: impl ::planus::WriteAsDefault<bool, bool>,
+                            field_id: impl ::planus::WriteAsDefault<i64, i64>,
+                            field_data: impl ::planus::WriteAsOptional<
+                                ::planus::Offset<self::RecordBatch>,
+                            >,
+                            field_is_delta: impl ::planus::WriteAsDefault<bool, bool>,
                         ) -> ::planus::Offset<Self> {
-                            let prepared_id = id.prepare(builder, &0);
+                            let prepared_id = field_id.prepare(builder, &0);
 
-                            let prepared_data = data.prepare(builder);
+                            let prepared_data = field_data.prepare(builder);
 
-                            let prepared_is_delta = is_delta.prepare(builder, &false);
+                            let prepared_is_delta = field_is_delta.prepare(builder, &false);
 
                             let mut table_writer =
                                 ::planus::table_writer::TableWriter::<8, 13>::new(builder);
@@ -7950,8 +8929,10 @@ mod root {
                         fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
                             let mut f = f.debug_struct("DictionaryBatchRef");
                             f.field("id", &self.id());
-                            if let ::core::option::Option::Some(data) = self.data().transpose() {
-                                f.field("data", &data);
+                            if let ::core::option::Option::Some(field_data) =
+                                self.data().transpose()
+                            {
+                                f.field("data", &field_data);
                             }
                             f.field("is_delta", &self.is_delta());
                             f.finish()
@@ -8050,7 +9031,17 @@ mod root {
                         }
                     }
 
-                    #[derive(Clone, Debug, PartialEq, ::serde::Serialize, ::serde::Deserialize)]
+                    #[derive(
+                        Clone,
+                        Debug,
+                        PartialEq,
+                        PartialOrd,
+                        Eq,
+                        Ord,
+                        Hash,
+                        ::serde::Serialize,
+                        ::serde::Deserialize,
+                    )]
                     pub enum MessageHeader {
                         Schema(::planus::alloc::boxed::Box<self::Schema>),
                         DictionaryBatch(::planus::alloc::boxed::Box<self::DictionaryBatch>),
@@ -8208,7 +9199,17 @@ mod root {
                         }
                     }
 
-                    #[derive(Clone, Debug, PartialEq, ::serde::Serialize, ::serde::Deserialize)]
+                    #[derive(
+                        Clone,
+                        Debug,
+                        PartialEq,
+                        PartialOrd,
+                        Eq,
+                        Ord,
+                        Hash,
+                        ::serde::Serialize,
+                        ::serde::Deserialize,
+                    )]
                     pub struct Message {
                         pub version: self::MetadataVersion,
                         pub header: ::core::option::Option<self::MessageHeader>,
@@ -8217,28 +9218,40 @@ mod root {
                             ::core::option::Option<::planus::alloc::vec::Vec<self::KeyValue>>,
                     }
 
+                    #[allow(clippy::derivable_impls)]
+                    impl ::core::default::Default for Message {
+                        fn default() -> Self {
+                            Self {
+                                version: self::MetadataVersion::V1,
+                                header: ::core::default::Default::default(),
+                                body_length: 0,
+                                custom_metadata: ::core::default::Default::default(),
+                            }
+                        }
+                    }
+
                     impl Message {
                         #[allow(clippy::too_many_arguments)]
                         pub fn create(
                             builder: &mut ::planus::Builder,
-                            version: impl ::planus::WriteAsDefault<
+                            field_version: impl ::planus::WriteAsDefault<
                                 self::MetadataVersion,
                                 self::MetadataVersion,
                             >,
-                            header: impl ::planus::WriteAsOptionalUnion<self::MessageHeader>,
-                            body_length: impl ::planus::WriteAsDefault<i64, i64>,
-                            custom_metadata: impl ::planus::WriteAsOptional<
+                            field_header: impl ::planus::WriteAsOptionalUnion<self::MessageHeader>,
+                            field_body_length: impl ::planus::WriteAsDefault<i64, i64>,
+                            field_custom_metadata: impl ::planus::WriteAsOptional<
                                 ::planus::Offset<[::planus::Offset<self::KeyValue>]>,
                             >,
                         ) -> ::planus::Offset<Self> {
                             let prepared_version =
-                                version.prepare(builder, &self::MetadataVersion::V1);
+                                field_version.prepare(builder, &self::MetadataVersion::V1);
 
-                            let prepared_header = header.prepare(builder);
+                            let prepared_header = field_header.prepare(builder);
 
-                            let prepared_body_length = body_length.prepare(builder, &0);
+                            let prepared_body_length = field_body_length.prepare(builder, &0);
 
-                            let prepared_custom_metadata = custom_metadata.prepare(builder);
+                            let prepared_custom_metadata = field_custom_metadata.prepare(builder);
 
                             let mut table_writer =
                                 ::planus::table_writer::TableWriter::<12, 19>::new(builder);
@@ -8372,15 +9385,16 @@ mod root {
                         fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
                             let mut f = f.debug_struct("MessageRef");
                             f.field("version", &self.version());
-                            if let ::core::option::Option::Some(header) = self.header().transpose()
+                            if let ::core::option::Option::Some(field_header) =
+                                self.header().transpose()
                             {
-                                f.field("header", &header);
+                                f.field("header", &field_header);
                             }
                             f.field("body_length", &self.body_length());
-                            if let ::core::option::Option::Some(custom_metadata) =
+                            if let ::core::option::Option::Some(field_custom_metadata) =
                                 self.custom_metadata().transpose()
                             {
-                                f.field("custom_metadata", &custom_metadata);
+                                f.field("custom_metadata", &field_custom_metadata);
                             }
                             f.finish()
                         }
@@ -8486,7 +9500,17 @@ mod root {
                         }
                     }
 
-                    #[derive(Clone, Debug, PartialEq, ::serde::Serialize, ::serde::Deserialize)]
+                    #[derive(
+                        Clone,
+                        Debug,
+                        PartialEq,
+                        PartialOrd,
+                        Eq,
+                        Ord,
+                        Hash,
+                        ::serde::Serialize,
+                        ::serde::Deserialize,
+                    )]
                     pub struct SparseTensorIndexCoo {
                         pub indices_type: ::planus::alloc::boxed::Box<self::Int>,
                         pub indices_strides: ::core::option::Option<::planus::alloc::vec::Vec<i64>>,
@@ -8494,22 +9518,36 @@ mod root {
                         pub is_canonical: bool,
                     }
 
+                    #[allow(clippy::derivable_impls)]
+                    impl ::core::default::Default for SparseTensorIndexCoo {
+                        fn default() -> Self {
+                            Self {
+                                indices_type: ::core::default::Default::default(),
+                                indices_strides: ::core::default::Default::default(),
+                                indices_buffer: ::core::default::Default::default(),
+                                is_canonical: false,
+                            }
+                        }
+                    }
+
                     impl SparseTensorIndexCoo {
                         #[allow(clippy::too_many_arguments)]
                         pub fn create(
                             builder: &mut ::planus::Builder,
-                            indices_type: impl ::planus::WriteAs<::planus::Offset<self::Int>>,
-                            indices_strides: impl ::planus::WriteAsOptional<::planus::Offset<[i64]>>,
-                            indices_buffer: impl ::planus::WriteAs<self::Buffer>,
-                            is_canonical: impl ::planus::WriteAsDefault<bool, bool>,
+                            field_indices_type: impl ::planus::WriteAs<::planus::Offset<self::Int>>,
+                            field_indices_strides: impl ::planus::WriteAsOptional<
+                                ::planus::Offset<[i64]>,
+                            >,
+                            field_indices_buffer: impl ::planus::WriteAs<self::Buffer>,
+                            field_is_canonical: impl ::planus::WriteAsDefault<bool, bool>,
                         ) -> ::planus::Offset<Self> {
-                            let prepared_indices_type = indices_type.prepare(builder);
+                            let prepared_indices_type = field_indices_type.prepare(builder);
 
-                            let prepared_indices_strides = indices_strides.prepare(builder);
+                            let prepared_indices_strides = field_indices_strides.prepare(builder);
 
-                            let prepared_indices_buffer = indices_buffer.prepare(builder);
+                            let prepared_indices_buffer = field_indices_buffer.prepare(builder);
 
-                            let prepared_is_canonical = is_canonical.prepare(builder, &false);
+                            let prepared_is_canonical = field_is_canonical.prepare(builder, &false);
 
                             let mut table_writer =
                                 ::planus::table_writer::TableWriter::<10, 25>::new(builder);
@@ -8618,10 +9656,10 @@ mod root {
                         fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
                             let mut f = f.debug_struct("SparseTensorIndexCooRef");
                             f.field("indices_type", &self.indices_type());
-                            if let ::core::option::Option::Some(indices_strides) =
+                            if let ::core::option::Option::Some(field_indices_strides) =
                                 self.indices_strides().transpose()
                             {
-                                f.field("indices_strides", &indices_strides);
+                                f.field("indices_strides", &field_indices_strides);
                             }
                             f.field("indices_buffer", &self.indices_buffer());
                             f.field("is_canonical", &self.is_canonical());
@@ -8730,7 +9768,16 @@ mod root {
                     }
 
                     #[derive(
-                        Copy, Clone, Debug, PartialEq, Eq, ::serde::Serialize, ::serde::Deserialize,
+                        Copy,
+                        Clone,
+                        Debug,
+                        PartialEq,
+                        Eq,
+                        PartialOrd,
+                        Ord,
+                        Hash,
+                        ::serde::Serialize,
+                        ::serde::Deserialize,
                     )]
                     #[repr(i16)]
                     pub enum SparseMatrixCompressedAxis {
@@ -8859,12 +9906,12 @@ mod root {
                         }
                     }
 
-                    impl<'buf> ::planus::VectorWrite<SparseMatrixCompressedAxis> for SparseMatrixCompressedAxis {
+                    impl ::planus::VectorWrite<SparseMatrixCompressedAxis> for SparseMatrixCompressedAxis {
                         const STRIDE: usize = 2;
 
                         type Value = Self;
 
-                        fn prepare(&self, _builder: &mut ::planus::Builder) -> Self::Value {
+                        fn prepare(&self, _builder: &mut ::planus::Builder) -> Self {
                             *self
                         }
 
@@ -8885,7 +9932,17 @@ mod root {
                         }
                     }
 
-                    #[derive(Clone, Debug, PartialEq, ::serde::Serialize, ::serde::Deserialize)]
+                    #[derive(
+                        Clone,
+                        Debug,
+                        PartialEq,
+                        PartialOrd,
+                        Eq,
+                        Ord,
+                        Hash,
+                        ::serde::Serialize,
+                        ::serde::Deserialize,
+                    )]
                     pub struct SparseMatrixIndexCsx {
                         pub compressed_axis: self::SparseMatrixCompressedAxis,
                         pub indptr_type: ::planus::alloc::boxed::Box<self::Int>,
@@ -8894,29 +9951,42 @@ mod root {
                         pub indices_buffer: self::Buffer,
                     }
 
+                    #[allow(clippy::derivable_impls)]
+                    impl ::core::default::Default for SparseMatrixIndexCsx {
+                        fn default() -> Self {
+                            Self {
+                                compressed_axis: self::SparseMatrixCompressedAxis::Row,
+                                indptr_type: ::core::default::Default::default(),
+                                indptr_buffer: ::core::default::Default::default(),
+                                indices_type: ::core::default::Default::default(),
+                                indices_buffer: ::core::default::Default::default(),
+                            }
+                        }
+                    }
+
                     impl SparseMatrixIndexCsx {
                         #[allow(clippy::too_many_arguments)]
                         pub fn create(
                             builder: &mut ::planus::Builder,
-                            compressed_axis: impl ::planus::WriteAsDefault<
+                            field_compressed_axis: impl ::planus::WriteAsDefault<
                                 self::SparseMatrixCompressedAxis,
                                 self::SparseMatrixCompressedAxis,
                             >,
-                            indptr_type: impl ::planus::WriteAs<::planus::Offset<self::Int>>,
-                            indptr_buffer: impl ::planus::WriteAs<self::Buffer>,
-                            indices_type: impl ::planus::WriteAs<::planus::Offset<self::Int>>,
-                            indices_buffer: impl ::planus::WriteAs<self::Buffer>,
+                            field_indptr_type: impl ::planus::WriteAs<::planus::Offset<self::Int>>,
+                            field_indptr_buffer: impl ::planus::WriteAs<self::Buffer>,
+                            field_indices_type: impl ::planus::WriteAs<::planus::Offset<self::Int>>,
+                            field_indices_buffer: impl ::planus::WriteAs<self::Buffer>,
                         ) -> ::planus::Offset<Self> {
-                            let prepared_compressed_axis = compressed_axis
+                            let prepared_compressed_axis = field_compressed_axis
                                 .prepare(builder, &self::SparseMatrixCompressedAxis::Row);
 
-                            let prepared_indptr_type = indptr_type.prepare(builder);
+                            let prepared_indptr_type = field_indptr_type.prepare(builder);
 
-                            let prepared_indptr_buffer = indptr_buffer.prepare(builder);
+                            let prepared_indptr_buffer = field_indptr_buffer.prepare(builder);
 
-                            let prepared_indices_type = indices_type.prepare(builder);
+                            let prepared_indices_type = field_indices_type.prepare(builder);
 
-                            let prepared_indices_buffer = indices_buffer.prepare(builder);
+                            let prepared_indices_buffer = field_indices_buffer.prepare(builder);
 
                             let mut table_writer =
                                 ::planus::table_writer::TableWriter::<12, 42>::new(builder);
@@ -9134,7 +10204,17 @@ mod root {
                         }
                     }
 
-                    #[derive(Clone, Debug, PartialEq, ::serde::Serialize, ::serde::Deserialize)]
+                    #[derive(
+                        Clone,
+                        Debug,
+                        PartialEq,
+                        PartialOrd,
+                        Eq,
+                        Ord,
+                        Hash,
+                        ::serde::Serialize,
+                        ::serde::Deserialize,
+                    )]
                     pub struct SparseTensorIndexCsf {
                         pub indptr_type: ::planus::alloc::boxed::Box<self::Int>,
                         pub indptr_buffers: ::planus::alloc::vec::Vec<self::Buffer>,
@@ -9147,21 +10227,25 @@ mod root {
                         #[allow(clippy::too_many_arguments)]
                         pub fn create(
                             builder: &mut ::planus::Builder,
-                            indptr_type: impl ::planus::WriteAs<::planus::Offset<self::Int>>,
-                            indptr_buffers: impl ::planus::WriteAs<::planus::Offset<[self::Buffer]>>,
-                            indices_type: impl ::planus::WriteAs<::planus::Offset<self::Int>>,
-                            indices_buffers: impl ::planus::WriteAs<::planus::Offset<[self::Buffer]>>,
-                            axis_order: impl ::planus::WriteAs<::planus::Offset<[i32]>>,
+                            field_indptr_type: impl ::planus::WriteAs<::planus::Offset<self::Int>>,
+                            field_indptr_buffers: impl ::planus::WriteAs<
+                                ::planus::Offset<[self::Buffer]>,
+                            >,
+                            field_indices_type: impl ::planus::WriteAs<::planus::Offset<self::Int>>,
+                            field_indices_buffers: impl ::planus::WriteAs<
+                                ::planus::Offset<[self::Buffer]>,
+                            >,
+                            field_axis_order: impl ::planus::WriteAs<::planus::Offset<[i32]>>,
                         ) -> ::planus::Offset<Self> {
-                            let prepared_indptr_type = indptr_type.prepare(builder);
+                            let prepared_indptr_type = field_indptr_type.prepare(builder);
 
-                            let prepared_indptr_buffers = indptr_buffers.prepare(builder);
+                            let prepared_indptr_buffers = field_indptr_buffers.prepare(builder);
 
-                            let prepared_indices_type = indices_type.prepare(builder);
+                            let prepared_indices_type = field_indices_type.prepare(builder);
 
-                            let prepared_indices_buffers = indices_buffers.prepare(builder);
+                            let prepared_indices_buffers = field_indices_buffers.prepare(builder);
 
-                            let prepared_axis_order = axis_order.prepare(builder);
+                            let prepared_axis_order = field_axis_order.prepare(builder);
 
                             let mut table_writer =
                                 ::planus::table_writer::TableWriter::<12, 20>::new(builder);
@@ -9367,7 +10451,17 @@ mod root {
                         }
                     }
 
-                    #[derive(Clone, Debug, PartialEq, ::serde::Serialize, ::serde::Deserialize)]
+                    #[derive(
+                        Clone,
+                        Debug,
+                        PartialEq,
+                        PartialOrd,
+                        Eq,
+                        Ord,
+                        Hash,
+                        ::serde::Serialize,
+                        ::serde::Deserialize,
+                    )]
                     pub enum SparseTensorIndex {
                         SparseTensorIndexCoo(
                             ::planus::alloc::boxed::Box<self::SparseTensorIndexCoo>,
@@ -9497,7 +10591,17 @@ mod root {
                         }
                     }
 
-                    #[derive(Clone, Debug, PartialEq, ::serde::Serialize, ::serde::Deserialize)]
+                    #[derive(
+                        Clone,
+                        Debug,
+                        PartialEq,
+                        PartialOrd,
+                        Eq,
+                        Ord,
+                        Hash,
+                        ::serde::Serialize,
+                        ::serde::Deserialize,
+                    )]
                     pub struct SparseTensor {
                         pub type_: self::Type,
                         pub shape: ::planus::alloc::vec::Vec<self::TensorDim>,
@@ -9510,23 +10614,24 @@ mod root {
                         #[allow(clippy::too_many_arguments)]
                         pub fn create(
                             builder: &mut ::planus::Builder,
-                            type_: impl ::planus::WriteAsUnion<self::Type>,
-                            shape: impl ::planus::WriteAs<
+                            field_type_: impl ::planus::WriteAsUnion<self::Type>,
+                            field_shape: impl ::planus::WriteAs<
                                 ::planus::Offset<[::planus::Offset<self::TensorDim>]>,
                             >,
-                            non_zero_length: impl ::planus::WriteAsDefault<i64, i64>,
-                            sparse_index: impl ::planus::WriteAsUnion<self::SparseTensorIndex>,
-                            data: impl ::planus::WriteAs<self::Buffer>,
+                            field_non_zero_length: impl ::planus::WriteAsDefault<i64, i64>,
+                            field_sparse_index: impl ::planus::WriteAsUnion<self::SparseTensorIndex>,
+                            field_data: impl ::planus::WriteAs<self::Buffer>,
                         ) -> ::planus::Offset<Self> {
-                            let prepared_type_ = type_.prepare(builder);
+                            let prepared_type_ = field_type_.prepare(builder);
 
-                            let prepared_shape = shape.prepare(builder);
+                            let prepared_shape = field_shape.prepare(builder);
 
-                            let prepared_non_zero_length = non_zero_length.prepare(builder, &0);
+                            let prepared_non_zero_length =
+                                field_non_zero_length.prepare(builder, &0);
 
-                            let prepared_sparse_index = sparse_index.prepare(builder);
+                            let prepared_sparse_index = field_sparse_index.prepare(builder);
 
-                            let prepared_data = data.prepare(builder);
+                            let prepared_data = field_data.prepare(builder);
 
                             let mut table_writer =
                                 ::planus::table_writer::TableWriter::<16, 38>::new(builder);
@@ -9744,24 +10849,44 @@ mod root {
                         }
                     }
 
-                    #[derive(Clone, Debug, PartialEq, ::serde::Serialize, ::serde::Deserialize)]
+                    #[derive(
+                        Clone,
+                        Debug,
+                        PartialEq,
+                        PartialOrd,
+                        Eq,
+                        Ord,
+                        Hash,
+                        ::serde::Serialize,
+                        ::serde::Deserialize,
+                    )]
                     pub struct TensorDim {
                         pub size: i64,
                         pub name: ::core::option::Option<::planus::alloc::string::String>,
+                    }
+
+                    #[allow(clippy::derivable_impls)]
+                    impl ::core::default::Default for TensorDim {
+                        fn default() -> Self {
+                            Self {
+                                size: 0,
+                                name: ::core::default::Default::default(),
+                            }
+                        }
                     }
 
                     impl TensorDim {
                         #[allow(clippy::too_many_arguments)]
                         pub fn create(
                             builder: &mut ::planus::Builder,
-                            size: impl ::planus::WriteAsDefault<i64, i64>,
-                            name: impl ::planus::WriteAsOptional<
+                            field_size: impl ::planus::WriteAsDefault<i64, i64>,
+                            field_name: impl ::planus::WriteAsOptional<
                                 ::planus::Offset<::core::primitive::str>,
                             >,
                         ) -> ::planus::Offset<Self> {
-                            let prepared_size = size.prepare(builder, &0);
+                            let prepared_size = field_size.prepare(builder, &0);
 
-                            let prepared_name = name.prepare(builder);
+                            let prepared_name = field_name.prepare(builder);
 
                             let mut table_writer =
                                 ::planus::table_writer::TableWriter::<6, 12>::new(builder);
@@ -9844,8 +10969,10 @@ mod root {
                         fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
                             let mut f = f.debug_struct("TensorDimRef");
                             f.field("size", &self.size());
-                            if let ::core::option::Option::Some(name) = self.name().transpose() {
-                                f.field("name", &name);
+                            if let ::core::option::Option::Some(field_name) =
+                                self.name().transpose()
+                            {
+                                f.field("name", &field_name);
                             }
                             f.finish()
                         }
@@ -9938,7 +11065,17 @@ mod root {
                         }
                     }
 
-                    #[derive(Clone, Debug, PartialEq, ::serde::Serialize, ::serde::Deserialize)]
+                    #[derive(
+                        Clone,
+                        Debug,
+                        PartialEq,
+                        PartialOrd,
+                        Eq,
+                        Ord,
+                        Hash,
+                        ::serde::Serialize,
+                        ::serde::Deserialize,
+                    )]
                     pub struct Tensor {
                         pub type_: self::Type,
                         pub shape: ::planus::alloc::vec::Vec<self::TensorDim>,
@@ -9950,20 +11087,20 @@ mod root {
                         #[allow(clippy::too_many_arguments)]
                         pub fn create(
                             builder: &mut ::planus::Builder,
-                            type_: impl ::planus::WriteAsUnion<self::Type>,
-                            shape: impl ::planus::WriteAs<
+                            field_type_: impl ::planus::WriteAsUnion<self::Type>,
+                            field_shape: impl ::planus::WriteAs<
                                 ::planus::Offset<[::planus::Offset<self::TensorDim>]>,
                             >,
-                            strides: impl ::planus::WriteAsOptional<::planus::Offset<[i64]>>,
-                            data: impl ::planus::WriteAs<self::Buffer>,
+                            field_strides: impl ::planus::WriteAsOptional<::planus::Offset<[i64]>>,
+                            field_data: impl ::planus::WriteAs<self::Buffer>,
                         ) -> ::planus::Offset<Self> {
-                            let prepared_type_ = type_.prepare(builder);
+                            let prepared_type_ = field_type_.prepare(builder);
 
-                            let prepared_shape = shape.prepare(builder);
+                            let prepared_shape = field_shape.prepare(builder);
 
-                            let prepared_strides = strides.prepare(builder);
+                            let prepared_strides = field_strides.prepare(builder);
 
-                            let prepared_data = data.prepare(builder);
+                            let prepared_data = field_data.prepare(builder);
 
                             let mut table_writer =
                                 ::planus::table_writer::TableWriter::<12, 29>::new(builder);
@@ -10067,10 +11204,10 @@ mod root {
                             let mut f = f.debug_struct("TensorRef");
                             f.field("type_", &self.type_());
                             f.field("shape", &self.shape());
-                            if let ::core::option::Option::Some(strides) =
+                            if let ::core::option::Option::Some(field_strides) =
                                 self.strides().transpose()
                             {
-                                f.field("strides", &strides);
+                                f.field("strides", &field_strides);
                             }
                             f.field("data", &self.data());
                             f.finish()
