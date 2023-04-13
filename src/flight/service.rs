@@ -68,12 +68,6 @@ pub mod flight_service_client {
             self
         }
 
-        #[must_use]
-        pub fn send_compressed(mut self, encoding: CompressionEncoding) -> Self {
-            self.inner = self.inner.send_compressed(encoding);
-            self
-        }
-
         /// Limits the maximum size of a decoded message.
         #[must_use]
         pub fn max_decoding_message_size(mut self, limit: usize) -> Self {
